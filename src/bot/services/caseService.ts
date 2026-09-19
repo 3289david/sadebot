@@ -3,6 +3,10 @@ import { generateCaseNumber } from "@/lib/caseNumber";
 import { logCaseEvent, logAudit } from "@/lib/audit";
 import { normalizeIdentifierValue, type ExtractedIdentifier } from "@/lib/extract";
 import { findDuplicateMatches, recordDuplicateLinks } from "@/lib/duplicates";
+import { maskByType } from "@/lib/mask";
+import { IDENTIFIER_LABEL } from "@/lib/constants";
+import { sendChannelEmbed, sendDmViaRest } from "@/lib/discordRest";
+import { botConfig } from "@/bot/config";
 import type { IdentifierType, CaseStatus } from "@prisma/client";
 
 export interface NewCaseInput {
@@ -69,6 +73,24 @@ export async function createCase(input: NewCaseInput) {
     await recordDuplicateLinks(created.id, matches);
   }
 
+  // 당사자 알림: 신고된 대상의 Discord ID를 식별할 수 있으면 접수 사실과 이의제기 방법을 미리 안내한다
+  // (사실관계가 다를 경우 조기에 소명할 수 있도록 하는 절차적 안전장치 — 스펙 25번).
+  const targetDiscordIds = created.identifiers
+    .filter((i) => i.type === "DISCORD_ID" && i.value !== input.reporterDiscordId)
+    .map((i) => i.value);
+  for (const targetId of new Set(targetDiscordIds)) {
+    await sendDmViaRest(
+      targetId,
+      "📢 거래 관련 제보 안내",
+      [
+        { name: "CASE", value: `#${created.caseNumber}`, inline: true },
+        { name: "현재 상태", value: "🟡 검토 중", inline: true },
+      ],
+      0x5865f2,
+      "귀하와 관련된 거래 제보가 접수되었습니다. 사실관계가 다를 경우 `/이의제기` 명령어로 소명할 수 있습니다.\n아직 운영진 검토 전이며, 이 알림은 사실 확정을 의미하지 않습니다.",
+    );
+  }
+
   return { case: created, duplicateMatches: matches };
 }
 
@@ -105,6 +127,25 @@ export async function changeCaseStatus(params: {
     targetId: params.caseId,
     detail: { before: before.status, after: params.newStatus },
   });
+
+  if (params.newStatus === "VERIFIED" && before.status !== "VERIFIED" && botConfig.addedScammerChannelId) {
+    const identifiers = await prisma.caseIdentifier.findMany({ where: { caseId: params.caseId } });
+    await sendChannelEmbed(
+      botConfig.addedScammerChannelId,
+      "📕 새로운 사기꾼이 등록되었습니다",
+      [
+        { name: "CASE", value: `#${updated.caseNumber}`, inline: true },
+        { name: "유형", value: updated.damageType, inline: true },
+        { name: "피해금액", value: updated.damageAmount ? `₩${updated.damageAmount.toLocaleString()}` : "미상", inline: true },
+        {
+          name: "연관 정보 (마스킹)",
+          value: identifiers.map((i) => `• ${IDENTIFIER_LABEL[i.type] ?? i.type}: ${maskByType(i.type, i.value)}`).join("\n") || "없음",
+        },
+        { name: "상세보기", value: `${botConfig.baseUrl}/case/${updated.caseNumber}` },
+      ],
+      0x57f287,
+    );
+  }
 
   const reporter = await prisma.report.findFirst({ where: { caseId: params.caseId }, orderBy: { createdAt: "asc" } });
   return { before: before.status, after: updated.status, reporterDiscordId: reporter?.reporterDiscordId ?? null };
@@ -179,7 +220,7 @@ export async function searchCases(query: string, opts: { publicOnly: boolean }) 
     if (full) byCaseId.set(full.id, { case: full, matched: full.identifiers.map((i) => ({ type: i.type, value: i.value })) });
   }
 
-  return [...byCaseId.values()].map(({ case: c, matched }) => ({
+  const results = [...byCaseId.values()].map(({ case: c, matched }) => ({
     caseNumber: c.caseNumber,
     status: c.status,
     damageType: c.damageType,
@@ -188,5 +229,20 @@ export async function searchCases(query: string, opts: { publicOnly: boolean }) 
     createdAt: c.createdAt,
     _count: c._count,
     matchedIdentifiers: matched,
+  }));
+
+  // 검색 결과에 연관된 Discord 서버가 안전서버 인증을 보유하고 있으면 배지 정보를 함께 붙인다 (스펙 15번).
+  const guildIds = [...new Set(results.flatMap((r) => r.matchedIdentifiers.filter((m) => m.type === "DISCORD_SERVER").map((m) => m.value)))];
+  const certs = guildIds.length
+    ? await prisma.serverCertification.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, certNumber: true, status: true, guildName: true } })
+    : [];
+  const certByGuild = new Map(certs.map((c) => [c.guildId, c]));
+
+  return results.map((r) => ({
+    ...r,
+    serverCert: r.matchedIdentifiers
+      .filter((m) => m.type === "DISCORD_SERVER")
+      .map((m) => certByGuild.get(m.value))
+      .find((c): c is NonNullable<typeof c> => Boolean(c)) ?? null,
   }));
 }

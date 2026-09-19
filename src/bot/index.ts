@@ -3,6 +3,9 @@ import { Client, GatewayIntentBits, Partials, Events } from "discord.js";
 import { botConfig } from "@/bot/config";
 import { registerInteractionHandler } from "@/bot/handlers/interactionCreate";
 import { registerMessageHandler } from "@/bot/handlers/messageCreate";
+import { checkExpiringAndExpired } from "@/lib/certService";
+
+const CERT_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간마다 인증 만료 임박/만료 처리
 
 async function main() {
   if (!botConfig.token || !botConfig.clientId) {
@@ -26,6 +29,10 @@ async function main() {
 
   client.once(Events.ClientReady, (c) => {
     console.log(`[sadebot-bot] 로그인 완료: ${c.user.tag}`);
+    checkExpiringAndExpired().catch((err) => console.error("[cert-expiry] initial check failed", err));
+    setInterval(() => {
+      checkExpiringAndExpired().catch((err) => console.error("[cert-expiry] periodic check failed", err));
+    }, CERT_CHECK_INTERVAL_MS);
   });
 
   await client.login(botConfig.token);

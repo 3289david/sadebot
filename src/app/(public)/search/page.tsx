@@ -2,6 +2,7 @@ import Link from "next/link";
 import { searchCases, logSearch } from "@/bot/services/caseService";
 import { maskByType } from "@/lib/mask";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
+import { CERT_STATUS_LABEL } from "@/lib/certService";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               </div>
               <p className="text-sm text-zinc-600 mb-1">유형: {r.damageType}</p>
               {r.platform && <p className="text-sm text-zinc-600 mb-1">관련 플랫폼: {r.platform}</p>}
+              {r.serverCert && (
+                <Link href={`/server/${r.serverCert.certNumber}`} className="inline-block text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 mb-1">
+                  🛡️ 안전서버 인증 ({r.serverCert.certNumber}) — {CERT_STATUS_LABEL[r.serverCert.status as keyof typeof CERT_STATUS_LABEL]}
+                </Link>
+              )}
               <div className="text-sm text-zinc-500 space-y-0.5 mt-2">
                 {r.matchedIdentifiers.map((m, idx) => (
                   <div key={idx}>

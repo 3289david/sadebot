@@ -27,7 +27,7 @@ const STATUS_BY_ACTION: Record<string, CaseStatus> = {
 
 export async function handleReviewButton(interaction: ButtonInteraction, caseId: string, action: string) {
   const perm = await checkBotPermission(interaction.user.id, "APPROVE_REJECT");
-  if (!perm.ok) {
+  if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 검토 권한이 없습니다.", flags: 64 });
     return;
   }
@@ -70,7 +70,7 @@ export async function handleReviewButton(interaction: ButtonInteraction, caseId:
   const status = STATUS_BY_ACTION[action];
   if (!status) return;
 
-  const result = await changeCaseStatus({ caseId, newStatus: status, actorId: interaction.user.id });
+  const result = await changeCaseStatus({ caseId, newStatus: status, actorId: perm.adminId });
   if (result.reporterDiscordId) {
     await safeSendDm(interaction.client, result.reporterDiscordId, buildStatusChangeDmEmbed({ caseNumber: (await prisma.case.findUnique({ where: { id: caseId } }))!.caseNumber, before: result.before, after: result.after }));
   }
@@ -95,9 +95,14 @@ export async function handleReviewButton(interaction: ButtonInteraction, caseId:
 }
 
 export async function handleNeedInfoModalSubmit(interaction: ModalSubmitInteraction, caseId: string) {
+  const perm = await checkBotPermission(interaction.user.id, "APPROVE_REJECT");
+  if (!perm.ok || !perm.adminId) {
+    await interaction.reply({ content: "⛔ 검토 권한이 없습니다.", flags: 64 });
+    return;
+  }
   await interaction.deferReply({ flags: 64 });
   const message = interaction.fields.getTextInputValue("message").trim();
-  const result = await changeCaseStatus({ caseId, newStatus: "NEEDS_MORE_INFO", actorId: interaction.user.id, message });
+  const result = await changeCaseStatus({ caseId, newStatus: "NEEDS_MORE_INFO", actorId: perm.adminId, message });
   const c = await prisma.case.findUnique({ where: { id: caseId } });
   if (result.reporterDiscordId && c) {
     await safeSendDm(interaction.client, result.reporterDiscordId, buildStatusChangeDmEmbed({ caseNumber: c.caseNumber, before: result.before, after: result.after, message }));
@@ -106,9 +111,14 @@ export async function handleNeedInfoModalSubmit(interaction: ModalSubmitInteract
 }
 
 export async function handleRejectModalSubmit(interaction: ModalSubmitInteraction, caseId: string) {
+  const perm = await checkBotPermission(interaction.user.id, "APPROVE_REJECT");
+  if (!perm.ok || !perm.adminId) {
+    await interaction.reply({ content: "⛔ 검토 권한이 없습니다.", flags: 64 });
+    return;
+  }
   await interaction.deferReply({ flags: 64 });
   const reason = interaction.fields.getTextInputValue("reason").trim();
-  const result = await changeCaseStatus({ caseId, newStatus: "REJECTED", actorId: interaction.user.id, message: reason });
+  const result = await changeCaseStatus({ caseId, newStatus: "REJECTED", actorId: perm.adminId, message: reason });
   const c = await prisma.case.findUnique({ where: { id: caseId } });
   if (result.reporterDiscordId && c) {
     await safeSendDm(interaction.client, result.reporterDiscordId, buildStatusChangeDmEmbed({ caseNumber: c.caseNumber, before: result.before, after: result.after, message: reason }));
@@ -118,11 +128,11 @@ export async function handleRejectModalSubmit(interaction: ModalSubmitInteractio
 
 export async function handleCaseViewButton(interaction: ButtonInteraction, caseId: string) {
   const perm = await checkBotPermission(interaction.user.id, "VIEW_EVIDENCE");
-  if (!perm.ok) {
+  if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 열람 권한이 없습니다.", flags: 64 });
     return;
   }
-  await logAudit({ actorId: interaction.user.id, action: "CASE_VIEW", targetType: "Case", targetId: caseId });
+  await logAudit({ actorId: perm.adminId, action: "CASE_VIEW", targetType: "Case", targetId: caseId });
 
   const c = await prisma.case.findUnique({
     where: { id: caseId },
@@ -152,11 +162,11 @@ export async function handleCaseViewButton(interaction: ButtonInteraction, caseI
 
 export async function handleDeleteCase(interaction: ButtonInteraction, caseId: string, reason: string) {
   const perm = await checkBotPermission(interaction.user.id, "DELETE_CASE");
-  if (!perm.ok) {
+  if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 삭제 권한이 없습니다.", flags: 64 });
     return;
   }
-  const c = await softDeleteCase({ caseId, actorId: interaction.user.id, reason });
+  const c = await softDeleteCase({ caseId, actorId: perm.adminId, reason });
   if (interaction.channel?.isSendable()) {
     await interaction.channel.send({ embeds: [buildDeleteLogEmbed({ caseNumber: c.caseNumber, actorTag: `<@${interaction.user.id}>`, reason })] });
   }
@@ -171,7 +181,7 @@ const DISPUTE_STATUS_BY_ACTION: Record<string, "RESOLVED_KEEP" | "RESOLVED_HIDE"
 
 export async function handleDisputeButton(interaction: ButtonInteraction, disputeId: string, action: string) {
   const perm = await checkBotPermission(interaction.user.id, "RESOLVE_DISPUTE");
-  if (!perm.ok) {
+  if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 이의제기 처리 권한이 없습니다.", flags: 64 });
     return;
   }
@@ -183,21 +193,21 @@ export async function handleDisputeButton(interaction: ButtonInteraction, disput
   const newDisputeStatus = DISPUTE_STATUS_BY_ACTION[action];
   await prisma.dispute.update({
     where: { id: disputeId },
-    data: { status: newDisputeStatus, resolvedById: interaction.user.id, resolvedAt: new Date() },
+    data: { status: newDisputeStatus, resolvedById: perm.adminId, resolvedAt: new Date() },
   });
 
   if (action === "hide") {
     await prisma.case.update({ where: { id: dispute.caseId }, data: { isPublic: false, visibility: "HIDDEN" } });
-    await logCaseEvent({ caseId: dispute.caseId, event: "DISPUTE_RESOLVED", actorId: interaction.user.id, detail: { action } });
+    await logCaseEvent({ caseId: dispute.caseId, event: "DISPUTE_RESOLVED", actorId: perm.adminId, detail: { action } });
   } else if (action === "needinfo") {
-    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: interaction.user.id });
+    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: perm.adminId });
   } else if (action === "delete") {
-    await softDeleteCase({ caseId: dispute.caseId, actorId: interaction.user.id, reason: "이의제기 확인 결과 - 잘못된 제보로 판단" });
+    await softDeleteCase({ caseId: dispute.caseId, actorId: perm.adminId, reason: "이의제기 확인 결과 - 잘못된 제보로 판단" });
   } else {
-    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "VERIFIED", actorId: interaction.user.id });
+    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "VERIFIED", actorId: perm.adminId });
   }
 
-  await logAudit({ actorId: interaction.user.id, action: "DISPUTE_RESOLVE", targetType: "Dispute", targetId: disputeId, detail: { action } });
+  await logAudit({ actorId: perm.adminId, action: "DISPUTE_RESOLVE", targetType: "Dispute", targetId: disputeId, detail: { action } });
 
   await safeSendDm(
     interaction.client,
@@ -217,7 +227,7 @@ export async function handleDisputeButton(interaction: ButtonInteraction, disput
 
 export async function handleDuplicateButton(interaction: ButtonInteraction, newCaseId: string, existingCaseId: string, action: "link" | "separate") {
   const perm = await checkBotPermission(interaction.user.id, "REVIEW_REPORT");
-  if (!perm.ok) {
+  if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 권한이 없습니다.", flags: 64 });
     return;
   }
@@ -227,7 +237,7 @@ export async function handleDuplicateButton(interaction: ButtonInteraction, newC
     where: { caseAId: newCaseId, caseBId: existingCaseId },
     data: { status: action === "link" ? "LINKED" : "REJECTED" },
   });
-  await logAudit({ actorId: interaction.user.id, action: "DUPLICATE_RESOLVE", targetType: "Case", targetId: newCaseId, detail: { existingCaseId, action } });
+  await logAudit({ actorId: perm.adminId, action: "DUPLICATE_RESOLVE", targetType: "Case", targetId: newCaseId, detail: { existingCaseId, action } });
 
   if (interaction.channel?.isSendable()) {
     await interaction.channel.send({

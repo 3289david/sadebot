@@ -9,8 +9,9 @@ export async function getAdminByDiscordId(discordId: string) {
 export async function checkBotPermission(discordId: string, permission: Permission): Promise<{
   ok: boolean;
   role?: AdminRole;
+  adminId?: string; // AdminUser.id (cuid) — AuditLog.actorId는 반드시 이 값을 써야 함 (discordId 아님)
 }> {
   const admin = await getAdminByDiscordId(discordId);
   if (!admin || !admin.active) return { ok: false };
-  return { ok: hasPermission(admin.role, permission), role: admin.role };
+  return { ok: hasPermission(admin.role, permission), role: admin.role, adminId: admin.id };
 }

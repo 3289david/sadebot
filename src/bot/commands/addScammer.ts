@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
 import { checkBotPermission } from "@/bot/services/permissions";
-import { createCase } from "@/bot/services/caseService";
+import { createCase, changeCaseStatus } from "@/bot/services/caseService";
 import { logAudit } from "@/lib/audit";
 import { buildDbRegisterLogEmbed } from "@/bot/services/embeds";
 import { botConfig } from "@/bot/config";
@@ -29,7 +29,7 @@ const command: BotCommand = {
     .addStringOption((opt) => opt.setName("플랫폼").setDescription("관련 플랫폼").setRequired(false)),
   async execute(interaction) {
     const perm = await checkBotPermission(interaction.user.id, "REVIEW_REPORT");
-    if (!perm.ok) {
+    if (!perm.ok || !perm.adminId) {
       await interaction.reply({ content: "⛔ 이 명령어는 운영진만 사용할 수 있습니다.", flags: 64 });
       return;
     }
@@ -52,12 +52,10 @@ const command: BotCommand = {
       identifiers: [{ type: idType, value: idValue, source: "MANUAL" }],
     });
 
-    await import("@/lib/prisma").then(({ prisma }) =>
-      prisma.case.update({ where: { id: created.id }, data: { status: "VERIFIED", isPublic: true, visibility: "PUBLIC" } }),
-    );
+    await changeCaseStatus({ caseId: created.id, newStatus: "VERIFIED", actorId: perm.adminId, message: "운영진 직접 등록" });
 
     await logAudit({
-      actorId: interaction.user.id,
+      actorId: perm.adminId,
       action: "CASE_DIRECT_ADD",
       targetType: "Case",
       targetId: created.id,

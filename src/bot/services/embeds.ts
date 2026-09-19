@@ -1,6 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 import { EMBED_COLOR, IDENTIFIER_LABEL, STATUS_LABEL, EVIDENCE_LABEL, DISPUTE_REASON_LABEL } from "@/lib/constants";
 import { maskByType } from "@/lib/mask";
+import { CERT_STATUS_LABEL } from "@/lib/certService";
 import type { ExtractedIdentifier } from "@/lib/extract";
 import type { DuplicateMatch } from "@/lib/duplicates";
 
@@ -14,7 +15,12 @@ type CaseLite = {
   _count?: { reports: number; evidence: number; disputes: number };
 };
 
-export function buildSearchResultEmbed(query: string, results: (CaseLite & { matchedIdentifiers: { type: string; value: string }[] })[]) {
+type ServerCertBadge = { certNumber: string; status: string; guildName: string | null } | null;
+
+export function buildSearchResultEmbed(
+  query: string,
+  results: (CaseLite & { matchedIdentifiers: { type: string; value: string }[]; serverCert?: ServerCertBadge })[],
+) {
   if (results.length === 0) {
     return new EmbedBuilder()
       .setColor(EMBED_COLOR.neutral)
@@ -38,6 +44,7 @@ export function buildSearchResultEmbed(query: string, results: (CaseLite & { mat
         `유형: ${r.damageType}`,
         r.platform ? `관련 플랫폼: ${r.platform}` : null,
         idLines || null,
+        r.serverCert ? `🛡️ 안전서버 인증 (${r.serverCert.certNumber}) — ${CERT_STATUS_LABEL[r.serverCert.status as keyof typeof CERT_STATUS_LABEL]}` : null,
         r._count ? `제보 ${r._count.reports}건 · 증거 ${r._count.evidence}개` : null,
       ]
         .filter(Boolean)

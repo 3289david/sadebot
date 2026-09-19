@@ -80,6 +80,35 @@ enum AdminRole {
   AUDITOR
 }
 
+enum CertStatus {
+  PENDING // 인증 대기 (봇 설치 확인 전)
+  INFO_CHECK // 서버 기본 정보 확인 중
+  TESTING // 비공개 안전거래 테스트 진행 중
+  REVIEW // 결과 검토 중 (재검토 포함)
+  ACTIVE // 인증 완료
+  EXPIRED // 인증 만료
+  REVOKED // 인증 취소
+  SUSPENDED // 인증 정지
+}
+
+enum CertTestType {
+  BOT_INSTALLED // 인증 봇 설치 확인 (자동)
+  ORDER_PROCESSING // 주문 처리
+  PAYMENT_PROCESSING // 결제 처리
+  PRODUCT_DELIVERY // 상품/서비스 제공
+  TRADE_COMPLIANCE // 거래 약속 준수
+  INQUIRY_RESPONSE // 문의 응답
+  REFUND_POLICY // 환불 정책
+  POST_SALE_SUPPORT // 거래 후 대응
+  TERMS_POLICY // 약관/운영정책 확인
+}
+
+enum CertTestResult {
+  NA // 미실시
+  PASS
+  FAIL
+}
+
 // ─────────────────────────────────────────────────────────────
 // 핵심 모델
 // ─────────────────────────────────────────────────────────────
@@ -261,4 +290,61 @@ model DuplicateLink {
   createdAt   DateTime @default(now())
 
   @@unique([caseAId, caseBId, matchType, matchValue])
+}
+
+// ─────────────────────────────────────────────────────────────
+// 안전서버 인증 (Safe Server Certification)
+// ─────────────────────────────────────────────────────────────
+
+model ServerCertification {
+  id               String     @id @default(cuid())
+  certNumber       String     @unique // 예: SV-19382
+  guildId          String     @unique
+  guildName        String?
+  applicantId      String // 신청한 디스코드 사용자 ID
+  status           CertStatus @default(PENDING)
+  certPeriodDays   Int        @default(30)
+  autoCheckResult  Json? // 봇 권한/채널 존재 여부 등 자동 확인 결과
+  appliedAt        DateTime   @default(now())
+  verifiedAt       DateTime?
+  expiresAt        DateTime?
+  lastVerifiedAt   DateTime?
+  expiryNotifiedAt DateTime?
+  revokedReason    String?
+  notes            String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  testItems CertTestItem[]
+  events    CertEvent[]
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model CertTestItem {
+  id           String              @id @default(cuid())
+  certId       String
+  cert         ServerCertification @relation(fields: [certId], references: [id], onDelete: Cascade)
+  testType     CertTestType
+  result       CertTestResult      @default(NA)
+  auto         Boolean             @default(false) // 자동 확인 항목 여부
+  note         String?
+  testedById   String?
+  testedAt     DateTime?
+  createdAt    DateTime            @default(now())
+
+  @@unique([certId, testType])
+}
+
+model CertEvent {
+  id        String              @id @default(cuid())
+  certId    String
+  cert      ServerCertification @relation(fields: [certId], references: [id], onDelete: Cascade)
+  event     String // APPLIED, INFO_CHECKED, TEST_PLAN_ROLLED, TEST_RECORDED, STATUS_CHANGED, RENEWED, EXPIRED, REVOKED
+  actorId   String?
+  detail    Json?
+  createdAt DateTime            @default(now())
+
+  @@index([certId])
 }

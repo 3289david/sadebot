@@ -7,6 +7,7 @@ const NAV: { href: string; label: string; permission?: Parameters<typeof hasPerm
   { href: "/admin", label: "대시보드" },
   { href: "/admin/cases", label: "사건 관리" },
   { href: "/admin/disputes", label: "이의제기", permission: "RESOLVE_DISPUTE" },
+  { href: "/admin/certifications", label: "안전서버 인증", permission: "MANAGE_CERTIFICATION" },
   { href: "/admin/stats", label: "통계" },
   { href: "/admin/audit", label: "감사 로그", permission: "VIEW_AUDIT_LOG" },
   { href: "/admin/admins", label: "운영진 관리", permission: "MANAGE_ADMINS" },
@@ -15,14 +16,16 @@ const NAV: { href: string; label: string; permission?: Parameters<typeof hasPerm
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin();
 
-  const [pendingCases, pendingDisputes, needInfoCases] = await Promise.all([
+  const [pendingCases, pendingDisputes, needInfoCases, pendingCerts] = await Promise.all([
     prisma.case.count({ where: { status: "RECEIVED" } }),
     prisma.dispute.count({ where: { status: "PENDING" } }),
     prisma.case.count({ where: { status: "NEEDS_MORE_INFO" } }),
+    prisma.serverCertification.count({ where: { status: { in: ["PENDING", "INFO_CHECK", "TESTING", "REVIEW"] } } }),
   ]);
   const badges: Record<string, number> = {
     "/admin/cases": pendingCases,
     "/admin/disputes": pendingDisputes,
+    "/admin/certifications": pendingCerts,
   };
 
   return (

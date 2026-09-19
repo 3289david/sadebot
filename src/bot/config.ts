@@ -10,6 +10,8 @@ export const botConfig = {
   guildId: process.env.DISCORD_GUILD_ID ?? "",
   logChannelId: process.env.DISCORD_LOG_CHANNEL_ID ?? "",
   reportChannelId: process.env.DISCORD_REPORT_CHANNEL_ID ?? "",
+  addedScammerChannelId: process.env.DISCORD_ADDED_SCAMMER_CHANNEL_ID ?? "",
+  scammerSearchChannelId: process.env.DISCORD_SCAMMER_SEARCH_CHANNEL_ID ?? "",
   baseUrl: process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3016",
 };
 
