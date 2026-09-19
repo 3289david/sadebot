@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
-import { extractAll, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
+import { extractLabeledLines, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
 import { createCase } from "@/bot/services/caseService";
 import { checkReportRateLimit } from "@/lib/ratelimit";
 import { buildAutoExtractEmbed, buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
@@ -85,9 +85,10 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
   const platform = interaction.fields.getTextInputValue("platform").trim() || null;
 
   const fullText = `${description}\n${identifiersText}`;
-  const extracted = extractAll(fullText);
-  const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(fullText);
-  const finalDamageType = DAMAGE_TYPES.includes(damageType) ? damageType : guessDamageType(fullText) ?? damageType;
+  // "항목: 값" 형식으로 직접 적은 줄만 인식한다 — 설명 본문에서 정규식으로 값을 추측하지 않는다.
+  const extracted = extractLabeledLines(identifiersText);
+  const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(description);
+  const finalDamageType = DAMAGE_TYPES.includes(damageType) ? damageType : guessDamageType(description) ?? damageType;
 
   const { case: created, duplicateMatches } = await createCase({
     damageType: finalDamageType,
@@ -99,8 +100,8 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
     reporterUsername: interaction.user.username,
     channelId: interaction.channelId ?? undefined,
     rawContent: fullText,
-    autoExtracted: extracted.length > 0,
-    identifiers: extracted.map((e) => ({ type: e.type as IdentifierType, value: e.value, source: "AUTO_EXTRACT" as const })),
+    autoExtracted: false,
+    identifiers: extracted.map((e) => ({ type: e.type as IdentifierType, value: e.value, source: "MANUAL" as const })),
   });
 
   await interaction.editReply(
