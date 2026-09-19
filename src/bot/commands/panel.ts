@@ -6,6 +6,7 @@ import {
   buildPanelReportRow,
   buildPanelDisputeRow,
   buildPanelStatsRow,
+  buildPanelCertRow,
 } from "@/bot/services/components";
 import { botConfig } from "@/bot/config";
 
@@ -65,7 +66,25 @@ function infoPanelEmbed() {
     );
 }
 
-const PANEL_TYPES = ["검색", "제보", "이의제기", "통계", "안내", "전체"] as const;
+function certPanelEmbed() {
+  return new EmbedBuilder()
+    .setColor(EMBED_COLOR.success)
+    .setTitle("🛡️ 안전서버 인증")
+    .setDescription(
+      [
+        "운영팀이 서버 정보와 실제 거래 처리(주문/결제/배송/환불/문의 응답 등)를 직접 확인하고 인증하는 제도입니다.",
+        "",
+        "🔍 신청 시 자동으로 확인: 인증 봇 설치 여부, 거래/환불/약관/문의 관련 채널 존재 여부",
+        "🕵️ 이후 운영팀이 비공개로 안전거래 테스트를 진행합니다.",
+        "",
+        "**인증 신청**: 이 서버의 '서버 관리' 권한이 있는 사용자만 가능",
+        "(슬래시 명령어: `/안전서버인증신청`, `/안전서버재인증`, `/인증정보`)",
+      ].join("\n"),
+    )
+    .setFooter({ text: "⚠️ 인증은 특정 서버가 모든 거래에서 문제가 없다는 것을 보장하는 의미가 아닙니다." });
+}
+
+const PANEL_TYPES = ["검색", "제보", "이의제기", "통계", "안내", "안전서버", "전체"] as const;
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -93,6 +112,7 @@ const command: BotCommand = {
     if (type === "이의제기" || type === "전체") jobs.push(interaction.channel.send({ embeds: [disputePanelEmbed()], components: [buildPanelDisputeRow()] }));
     if (type === "통계" || type === "전체") jobs.push(interaction.channel.send({ embeds: [statsPanelEmbed()], components: [buildPanelStatsRow()] }));
     if (type === "안내" || type === "전체") jobs.push(interaction.channel.send({ embeds: [infoPanelEmbed()] }));
+    if (type === "안전서버" || type === "전체") jobs.push(interaction.channel.send({ embeds: [certPanelEmbed()], components: [buildPanelCertRow()] }));
     await Promise.all(jobs);
   },
 };

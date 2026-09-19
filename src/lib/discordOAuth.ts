@@ -10,16 +10,23 @@ function requiredEnv(name: string): string {
   return v;
 }
 
-export function getOAuthRedirectUri() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3016";
-  return `${base}/api/auth/discord/callback`;
+function baseUrl() {
+  return process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3016";
 }
 
-export function buildDiscordAuthorizeUrl(state: string) {
+export function getOAuthRedirectUri() {
+  return `${baseUrl()}/api/auth/discord/callback`;
+}
+
+export function getUserOAuthRedirectUri() {
+  return `${baseUrl()}/api/auth/discord-user/callback`;
+}
+
+export function buildDiscordAuthorizeUrl(state: string, redirectUri: string = getOAuthRedirectUri()) {
   const clientId = requiredEnv("DISCORD_CLIENT_ID");
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: getOAuthRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "identify",
     state,
@@ -40,7 +47,7 @@ interface DiscordUser {
   avatar: string | null;
 }
 
-export async function exchangeCodeForUser(code: string): Promise<DiscordUser> {
+export async function exchangeCodeForUser(code: string, redirectUri: string = getOAuthRedirectUri()): Promise<DiscordUser> {
   const clientId = requiredEnv("DISCORD_CLIENT_ID");
   const clientSecret = requiredEnv("DISCORD_CLIENT_SECRET");
 
@@ -52,7 +59,7 @@ export async function exchangeCodeForUser(code: string): Promise<DiscordUser> {
       client_secret: clientSecret,
       grant_type: "authorization_code",
       code,
-      redirect_uri: getOAuthRedirectUri(),
+      redirect_uri: redirectUri,
     }),
   });
   if (!tokenRes.ok) {

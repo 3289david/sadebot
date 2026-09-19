@@ -1,14 +1,17 @@
-"use client";
-
-import { useActionState } from "react";
 import Link from "next/link";
-import { submitPublicReport } from "@/lib/actions/publicReport";
-import { DAMAGE_TYPES } from "@/lib/constants";
+import { getCurrentReporter } from "@/lib/userSession";
+import ReportForm from "./ReportForm";
 
-const initialState = { error: undefined as string | undefined };
+export const dynamic = "force-dynamic";
 
-export default function ReportPage() {
-  const [state, formAction, pending] = useActionState(submitPublicReport, initialState);
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_state: "로그인 요청이 만료되었거나 위조되었습니다. 다시 시도해주세요.",
+  oauth_failed: "Discord 인증에 실패했습니다. 다시 시도해주세요.",
+};
+
+export default async function ReportPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const reporter = await getCurrentReporter();
 
   return (
     <main className="flex-1 max-w-xl w-full mx-auto px-4 py-12">
@@ -16,59 +19,25 @@ export default function ReportPage() {
         ← 홈으로
       </Link>
       <h1 className="text-2xl font-bold mt-2 mb-2">🚨 사기 제보</h1>
-      <p className="text-sm text-zinc-500 mb-6">
-        디스코드 서버 안에서는 <code>/신고</code> 명령어로도 제보할 수 있습니다. 증거 파일 첨부는 디스코드 제보를
-        이용해주세요.
-      </p>
 
-      <form action={formAction} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">피해 유형 *</label>
-          <select name="damageType" required className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm">
-            {DAMAGE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+      {!reporter ? (
+        <div className="mt-6 bg-white border border-zinc-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-zinc-600 mb-4">
+            허위/악성 제보를 막기 위해 웹 제보는 Discord 로그인이 필요합니다.
+            <br />
+            제보 내용은 로그인한 Discord 계정에 연결되어 접수됩니다.
+          </p>
+          {error && <p className="text-sm text-red-600 mb-4">{ERROR_MESSAGES[error] ?? "로그인에 실패했습니다."}</p>}
+          <a
+            href="/api/auth/discord-user?returnTo=/report"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#5865F2] text-white text-sm font-medium hover:bg-[#4752c4]"
+          >
+            Discord로 로그인하고 제보하기
+          </a>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">피해 금액 (원)</label>
-          <input name="damageAmount" type="number" min={0} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">사건 설명 *</label>
-          <textarea name="description" required rows={5} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">상대방 정보 (선택)</label>
-          <textarea
-            name="identifiersText"
-            rows={3}
-            placeholder="디스코드ID, 전화번호, 계좌번호, 닉네임 등 아는 대로 적어주세요. 자동으로 인식됩니다."
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>
-          <input name="platform" placeholder="예: Discord, OO거래사이트" className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-
-        {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full py-3 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50"
-        >
-          {pending ? "제출 중..." : "제보하기"}
-        </button>
-      </form>
-
-      <p className="text-xs text-zinc-400 mt-6">
-        ※ 제보 내용은 운영진 검토를 거친 후에만 검색 결과에 노출됩니다. 허위 제보는 이의제기 및 검토를 통해
-        반려/삭제될 수 있습니다.
-      </p>
+      ) : (
+        <ReportForm username={reporter.username} />
+      )}
     </main>
   );
 }

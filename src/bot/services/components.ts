@@ -49,3 +49,11 @@ export function buildPanelStatsRow() {
     new ButtonBuilder().setCustomId("panel:stats").setLabel("📊 통계 보기").setStyle(ButtonStyle.Secondary),
   );
 }
+
+export function buildPanelCertRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("panel:cert_apply").setLabel("🛡️ 인증 신청").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("panel:cert_reapply").setLabel("🔄 재인증").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("panel:cert_info").setLabel("ℹ️ 인증정보 확인").setStyle(ButtonStyle.Primary),
+  );
+}
