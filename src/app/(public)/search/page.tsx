@@ -41,7 +41,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <button className="px-5 py-3 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">검색</button>
       </form>
 
-      {/* 더치트(TheCheat) 스타일 — 사건 목록보다 먼저, "이 대상은 사기인가?"부터 한눈에 보여준다 */}
+      {/* 더치트(TheCheat) 스타일 — 사건 목록보다 먼저, "이 대상은 사기인가?"부터 한눈에 보여준다.
+          아래 외부 링크는 경찰청 사이버범죄 신고·예방 페이지로 연결된다. */}
       {verdict && (
         <div className={`rounded-xl border-2 p-5 mb-6 ${VERDICT_STYLE[verdict.level]}`}>
           <p className="text-lg font-bold mb-1">{verdict.title}</p>
@@ -52,7 +53,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             rel="noopener noreferrer"
             className="inline-block text-xs underline opacity-90 hover:opacity-100"
           >
-            🔗 더치트에서도 확인하기 (외부 사이트) →
+            🔗 경찰청 사이버범죄 확인하기 (외부 사이트) →
           </a>
         </div>
       )}
