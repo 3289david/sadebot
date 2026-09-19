@@ -66,6 +66,39 @@ export async function fetchGuildMember(guildId: string, userId: string) {
   }>;
 }
 
+export async function fetchGuildRoles(guildId: string) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  const res = await fetch(`${API}/guilds/${guildId}/roles`, { headers: { Authorization: `Bot ${token}` } });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ id: string; permissions: string }[]>;
+}
+
+const MANAGE_GUILD_BIT = BigInt(0x20);
+const ADMINISTRATOR_BIT = BigInt(0x8);
+
+// 봇이 이미 들어가 있는 임의의 길드에서, 유저 OAuth 없이 봇 토큰만으로
+// "이 사람이 그 서버의 관리 권한(서버 관리/Administrator/소유자)을 갖고 있는가"를 확인한다.
+// 우리 허브 서버 안에서 다른(본인) 서버에 대해 인증을 신청할 때 사용.
+export async function userManagesGuild(guildId: string, userId: string): Promise<{ ok: boolean; guildName?: string }> {
+  const guild = await fetchGuild(guildId);
+  if (!guild) return { ok: false };
+  if (guild.owner_id === userId) return { ok: true, guildName: guild.name };
+
+  const member = await fetchGuildMember(guildId, userId);
+  const roles = await fetchGuildRoles(guildId);
+  if (!member || !roles) return { ok: false, guildName: guild.name };
+
+  const roleById = new Map(roles.map((r) => [r.id, BigInt(r.permissions)]));
+  let combined = roleById.get(guildId) ?? BigInt(0); // @everyone role shares the guild id
+  for (const roleId of member.roles) {
+    combined |= roleById.get(roleId) ?? BigInt(0);
+  }
+
+  const ok = (combined & MANAGE_GUILD_BIT) !== BigInt(0) || (combined & ADMINISTRATOR_BIT) !== BigInt(0);
+  return { ok, guildName: guild.name };
+}
+
 export async function sendDmViaRest(userId: string, title: string, fields: EmbedField[], color = 0x5865f2, description?: string) {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return false;

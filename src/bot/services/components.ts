@@ -51,11 +51,13 @@ export function buildPanelStatsRow() {
 }
 
 // 우리(허브) 서버는 인증 대상이 아니므로, 이 패널은 "여러분의 서버"를 인증받고 싶은
-// 다른 서버 운영자를 위한 안내용이다 — 봇 초대 링크 / 웹 신청 링크 / 인증서버 검색만 제공한다.
+// 다른 서버 운영자를 위한 것이다 — 봇 초대 링크 / 웹 신청 링크 / 여기서 바로 신청·재인증 / 인증서버 검색.
 export function buildPanelCertRow(inviteUrl: string | null, applyUrl: string) {
   const row = new ActionRowBuilder<ButtonBuilder>();
   if (inviteUrl) row.addComponents(new ButtonBuilder().setLabel("🔗 봇 초대하기").setStyle(ButtonStyle.Link).setURL(inviteUrl));
-  row.addComponents(new ButtonBuilder().setLabel("📝 웹에서 신청하기").setStyle(ButtonStyle.Link).setURL(applyUrl));
+  row.addComponents(new ButtonBuilder().setLabel("🌐 웹에서 신청하기").setStyle(ButtonStyle.Link).setURL(applyUrl));
+  row.addComponents(new ButtonBuilder().setCustomId("panel:cert_apply_here").setLabel("📝 여기서 신청").setStyle(ButtonStyle.Success));
+  row.addComponents(new ButtonBuilder().setCustomId("panel:cert_reapply_here").setLabel("🔄 여기서 재인증").setStyle(ButtonStyle.Secondary));
   row.addComponents(new ButtonBuilder().setCustomId("panel:cert_search").setLabel("🔍 인증서버 검색").setStyle(ButtonStyle.Primary));
   return row;
 }

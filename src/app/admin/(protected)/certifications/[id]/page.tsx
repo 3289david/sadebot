@@ -109,7 +109,11 @@ export default async function AdminCertificationDetailPage({ params }: { params:
           {cert.testItems
             .filter((t) => t.testType !== "BOT_INSTALLED")
             .map((t) => (
-              <form key={t.id} action={recordTestResultAction.bind(null, cert.id, t.testType)} className="flex items-center gap-2 border border-neutral-100 rounded-md p-2 text-sm">
+              <form
+                key={`${t.id}:${t.result}:${t.note ?? ""}`}
+                action={recordTestResultAction.bind(null, cert.id, t.testType)}
+                className="flex items-center gap-2 border border-neutral-100 rounded-md p-2 text-sm"
+              >
                 <span className="w-40 shrink-0">{TEST_TYPE_LABEL[t.testType]}</span>
                 <select name="result" defaultValue={t.result} className="border border-neutral-300 rounded px-2 py-1 text-xs">
                   <option value="NA">➖ 미실시</option>

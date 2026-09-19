@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { generateCertNumber } from "@/lib/certNumber";
-import { fetchGuild, fetchGuildChannels, sendChannelEmbed, sendDmViaRest } from "@/lib/discordRest";
+import { fetchGuild, fetchGuildChannels, sendChannelEmbed, sendDmViaRest, userManagesGuild } from "@/lib/discordRest";
 import { logAudit } from "@/lib/audit";
 import { botConfig } from "@/bot/config";
-import type { CertStatus, CertTestType, CertTestResult } from "@prisma/client";
+import type { CertStatus, CertTestType, CertTestResult, ServerCertification } from "@prisma/client";
 
 const DISCORD_EPOCH = BigInt(1420070400000);
 
@@ -110,6 +110,24 @@ export async function applyCertification(params: { guildId: string; guildName: s
   return { cert, isNew: true };
 }
 
+export type ApplyAsUserResult =
+  | { status: "not_in_guild"; guildId: string }
+  | { status: "no_permission"; guildName: string }
+  | { status: "already_exists"; cert: ServerCertification }
+  | { status: "created"; cert: ServerCertification };
+
+// 봇 토큰만으로(유저 OAuth 없이) "이 사람이 그 서버를 관리할 권한이 있는가"를 확인한 뒤 신청을 대행한다.
+// 허브 서버 안에서 /안전서버인증신청 서버id:... 로 본인 소유의 다른 서버를 신청할 때, 그리고
+// 허브 패널의 "여기서 신청" 버튼(모달)에서 쓰인다.
+export async function applyCertificationAsUser(guildId: string, applicantId: string): Promise<ApplyAsUserResult> {
+  const check = await userManagesGuild(guildId, applicantId);
+  if (!check.guildName) return { status: "not_in_guild", guildId };
+  if (!check.ok) return { status: "no_permission", guildName: check.guildName };
+
+  const { cert, isNew } = await applyCertification({ guildId, guildName: check.guildName, applicantId });
+  return isNew ? { status: "created", cert } : { status: "already_exists", cert };
+}
+
 export async function reapplyCertification(params: { guildId: string; actorId: string }) {
   const cert = await prisma.serverCertification.findUniqueOrThrow({ where: { guildId: params.guildId } });
   const autoCheckResult = await runAutoCheck(params.guildId);
@@ -127,6 +145,24 @@ export async function reapplyCertification(params: { guildId: string; actorId: s
   });
 
   return updated;
+}
+
+export type ReapplyAsUserResult =
+  | { status: "not_in_guild"; guildId: string }
+  | { status: "no_permission"; guildName: string }
+  | { status: "no_existing_cert"; guildName: string }
+  | { status: "renewed"; cert: ServerCertification };
+
+export async function reapplyCertificationAsUser(guildId: string, actorId: string): Promise<ReapplyAsUserResult> {
+  const check = await userManagesGuild(guildId, actorId);
+  if (!check.guildName) return { status: "not_in_guild", guildId };
+  if (!check.ok) return { status: "no_permission", guildName: check.guildName };
+
+  const existing = await prisma.serverCertification.findUnique({ where: { guildId } });
+  if (!existing) return { status: "no_existing_cert", guildName: check.guildName };
+
+  const cert = await reapplyCertification({ guildId, actorId });
+  return { status: "renewed", cert };
 }
 
 export function pickRandomTestPlan(count = 3): CertTestType[] {

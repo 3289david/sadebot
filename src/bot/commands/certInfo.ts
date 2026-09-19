@@ -22,7 +22,8 @@ const RESULT_ICON: Record<string, string> = { PASS: "✅", FAIL: "❌", NA: "➖
 const command: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("인증정보")
-    .setDescription("현재 서버의 안전서버 인증 상태를 확인합니다.")
+    .setDescription("서버의 안전서버 인증 상태를 확인합니다.")
+    .addStringOption((opt) => opt.setName("서버id").setDescription("다른 서버의 인증 상태를 확인하려면 서버 ID (기본: 현재 서버)").setRequired(false))
     .setDMPermission(false),
   async execute(interaction) {
     if (!interaction.guild) {
@@ -30,20 +31,22 @@ const command: BotCommand = {
       return;
     }
 
+    const targetGuildId = interaction.options.getString("서버id") ?? interaction.guild.id;
+
     await interaction.deferReply();
     const cert = await prisma.serverCertification.findUnique({
-      where: { guildId: interaction.guild.id },
+      where: { guildId: targetGuildId },
       include: { testItems: true },
     });
 
     if (!cert) {
-      await interaction.editReply("⚪ 이 서버는 안전서버 인증을 받지 않았습니다.\n서버 관리자는 `/안전서버인증신청` 으로 신청할 수 있습니다.");
+      await interaction.editReply("⚪ 그 서버는 안전서버 인증을 받지 않았습니다.\n서버 관리자는 `/안전서버인증신청` 으로 신청할 수 있습니다.");
       return;
     }
 
     const embed = new EmbedBuilder()
       .setColor(cert.status === "ACTIVE" ? EMBED_COLOR.success : EMBED_COLOR.neutral)
-      .setTitle(`🛡️ ${cert.guildName ?? interaction.guild.name}`)
+      .setTitle(`🛡️ ${cert.guildName ?? targetGuildId}`)
       .addFields(
         { name: "안전서버 인증", value: CERT_STATUS_LABEL[cert.status], inline: true },
         { name: "인증번호", value: cert.certNumber, inline: true },

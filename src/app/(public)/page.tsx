@@ -1,8 +1,21 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { CERT_STATUS_LABEL } from "@/lib/certService";
+import HomeCertCheckWidget from "./_components/HomeCertCheckWidget";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const DISCORD_INVITE_URL = "https://discord.gg/dZQa36Zush";
+
+export default async function Home() {
+  const activeCerts = await prisma.serverCertification.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { verifiedAt: "desc" },
+    take: 6,
+  });
+
   return (
-    <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-16 sm:py-24 text-center gap-8">
+    <main className="flex-1 flex flex-col items-center px-4 sm:px-6 py-16 sm:py-24 text-center gap-8">
       <div>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">🛡️ 사데봇</h1>
         <p className="text-zinc-500 max-w-md mx-auto text-sm sm:text-base">
@@ -17,6 +30,14 @@ export default function Home() {
         <Link href="/report" className="px-6 py-3 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 text-center">
           🚨 사기 제보하기
         </Link>
+        <a
+          href={DISCORD_INVITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-6 py-3 rounded-lg bg-[#5865F2] text-white font-medium hover:bg-[#4752c4] text-center"
+        >
+          💬 디스코드 서버 참여
+        </a>
       </div>
 
       <div className="w-full max-w-md bg-white border border-zinc-200 rounded-xl p-5 sm:p-6">
@@ -39,6 +60,31 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      {activeCerts.length > 0 && (
+        <div className="w-full max-w-md bg-white border border-zinc-200 rounded-xl p-5 sm:p-6 text-left">
+          <h2 className="text-base sm:text-lg font-semibold mb-3 text-center">✅ 최근 인증된 서버</h2>
+          <div className="space-y-2">
+            {activeCerts.map((c) => (
+              <Link
+                key={c.id}
+                href={`/server/${c.certNumber}`}
+                className="flex items-center justify-between border border-zinc-100 rounded-lg px-3 py-2 hover:border-emerald-300 transition-colors"
+              >
+                <span className="text-sm font-medium truncate">{c.guildName ?? c.guildId}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
+                  {CERT_STATUS_LABEL[c.status]}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <Link href="/servers" className="block text-center text-xs text-indigo-600 underline mt-3">
+            전체 인증서버 목록 보기 →
+          </Link>
+        </div>
+      )}
+
+      <HomeCertCheckWidget />
 
       <p className="text-xs text-zinc-400 max-w-lg px-2">
         ※ 공개된 정보는 개인정보 보호를 위해 마스킹되어 제공되며, DB 등재만으로 범죄 사실이 확정되지 않습니다.
