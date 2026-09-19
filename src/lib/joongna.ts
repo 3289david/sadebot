@@ -17,7 +17,9 @@ function classifyJoongnaType(value: string): { type: JoongnaFraudType; normalize
   if (/^[0-9]{8,16}$/.test(digitsOnly)) {
     return { type: "account_number", normalized: digitsOnly };
   }
-  if (/^(?=.*[a-zA-Z])[a-zA-Z0-9_.-]{3,20}$/.test(trimmed)) {
+  // 카카오 ID 자체는 영문/숫자지만, 이 검색어는 닉네임/디스코드 계정 등 온갖 형태로 들어온다.
+  // 이메일·전화번호·계좌번호가 아닌 이상 사실상 다 여기로 와야 하므로 한글 닉네임도 폭넓게 허용한다.
+  if (/^[a-zA-Z0-9가-힣_.-]{2,20}$/.test(trimmed)) {
     return { type: "kakao_id", normalized: trimmed };
   }
   return null;
