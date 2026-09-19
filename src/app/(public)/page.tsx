@@ -8,25 +8,42 @@ export const dynamic = "force-dynamic";
 const DISCORD_INVITE_URL = "https://discord.gg/dZQa36Zush";
 
 export default async function Home() {
-  const activeCerts = await prisma.serverCertification.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { verifiedAt: "desc" },
-    take: 6,
-  });
+  const [activeCerts, verifiedCount] = await Promise.all([
+    prisma.serverCertification.findMany({ where: { status: "ACTIVE" }, orderBy: { verifiedAt: "desc" }, take: 6 }),
+    prisma.case.count({ where: { status: "VERIFIED" } }),
+  ]);
 
   return (
     <main className="flex-1 flex flex-col items-center px-4 sm:px-6 py-16 sm:py-24 text-center gap-8">
       <div>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">🛡️ 사데봇</h1>
         <p className="text-zinc-500 max-w-md mx-auto text-sm sm:text-base">
-          사기 제보를 접수하고, 운영진 검토를 거쳐 검색 가능한 형태로 제공하는 커뮤니티 안전 플랫폼입니다.
+          거래하기 전, 상대방의 전화번호·계좌·닉네임·Discord ID를 먼저 검색하세요.
+          <br />
+          디스코드판 사기 조회 서비스입니다.
         </p>
+        {verifiedCount > 0 && (
+          <p className="text-xs text-zinc-400 mt-2">현재까지 검증된 사기 제보 {verifiedCount}건 등록됨</p>
+        )}
       </div>
 
+      {/* 핵심 목적 = 검색. 버튼 하나로 유도하지 않고 홈에서 바로 검색할 수 있게 한다. */}
+      <form action="/search" className="w-full max-w-lg">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            name="q"
+            placeholder="전화번호 / 계좌번호 / Discord ID / 닉네임 검색"
+            className="flex-1 border-2 border-zinc-300 rounded-lg px-4 py-3.5 text-sm focus:border-indigo-500 focus:outline-none"
+            autoFocus
+          />
+          <button className="px-6 py-3.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shrink-0">
+            🔎 검색
+          </button>
+        </div>
+      </form>
+
       <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm sm:max-w-none sm:w-auto">
-        <Link href="/search" className="px-6 py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 text-center">
-          🔎 사기 DB 검색
-        </Link>
         <Link href="/report" className="px-6 py-3 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 text-center">
           🚨 사기 제보하기
         </Link>

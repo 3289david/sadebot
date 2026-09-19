@@ -2,6 +2,7 @@ import { EmbedBuilder } from "discord.js";
 import { EMBED_COLOR, IDENTIFIER_LABEL, STATUS_LABEL, EVIDENCE_LABEL, DISPUTE_REASON_LABEL } from "@/lib/constants";
 import { maskByType } from "@/lib/mask";
 import { CERT_STATUS_LABEL } from "@/lib/certService";
+import { computeVerdict } from "@/lib/verdict";
 import type { ExtractedIdentifier } from "@/lib/extract";
 import type { DuplicateMatch } from "@/lib/duplicates";
 
@@ -21,18 +22,21 @@ export function buildSearchResultEmbed(
   query: string,
   results: (CaseLite & { matchedIdentifiers: { type: string; value: string }[]; serverCert?: ServerCertBadge })[],
 ) {
+  const verdict = computeVerdict(results);
+
   if (results.length === 0) {
     return new EmbedBuilder()
-      .setColor(EMBED_COLOR.neutral)
-      .setTitle("🔎 사기 DB 검색")
-      .setDescription(`검색어\n> ${query}\n\n일치하는 제보가 없습니다.`)
-      .setFooter({ text: "※ 결과 없음이 무혐의를 의미하지는 않습니다." });
+      .setColor(verdict.color)
+      .setTitle(verdict.title)
+      .setDescription(`검색어\n> ${query}\n\n${verdict.detail}`)
+      .setFooter({ text: "사데봇 — 거래 전에 검색하세요" });
   }
 
+  // 더치트(TheCheat)처럼: 개별 사건을 늘어놓기 전에 "이 대상, 사기인가 아닌가"부터 맨 위에 보여준다.
   const embed = new EmbedBuilder()
-    .setColor(EMBED_COLOR.warn)
-    .setTitle("🔎 사기 DB 검색 결과")
-    .setDescription(`검색어\n> ${query}\n\n⚠️ 관련 제보 ${results.length}건`);
+    .setColor(verdict.color)
+    .setTitle(verdict.title)
+    .setDescription(`검색어\n> ${query}\n\n${verdict.detail}`);
 
   for (const r of results.slice(0, 10)) {
     const idLines = r.matchedIdentifiers

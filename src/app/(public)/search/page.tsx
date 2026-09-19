@@ -3,23 +3,33 @@ import { searchCases, logSearch } from "@/bot/services/caseService";
 import { maskByType } from "@/lib/mask";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
 import { CERT_STATUS_LABEL } from "@/lib/certService";
+import { computeVerdict, type VerdictLevel } from "@/lib/verdict";
 
 export const dynamic = "force-dynamic";
+
+const VERDICT_STYLE: Record<VerdictLevel, string> = {
+  danger: "bg-red-600 text-white border-red-700",
+  caution: "bg-orange-500 text-white border-orange-600",
+  reviewing: "bg-amber-100 text-amber-900 border-amber-300",
+  none: "bg-emerald-600 text-white border-emerald-700",
+};
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
   const results = query ? await searchCases(query, { publicOnly: true }) : [];
   if (query) await logSearch("WEB");
+  const verdict = query ? computeVerdict(results) : null;
 
   return (
     <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-12">
       <Link href="/" className="text-sm text-zinc-400 hover:underline">
         ← 홈으로
       </Link>
-      <h1 className="text-2xl font-bold mt-2 mb-6">🔎 사기 DB 검색</h1>
+      <h1 className="text-2xl font-bold mt-2 mb-1">🔎 사기 DB 검색</h1>
+      <p className="text-sm text-zinc-500 mb-6">거래하기 전에 상대방의 전화번호, 계좌, 닉네임, Discord ID를 먼저 검색하세요.</p>
 
-      <form className="flex gap-2 mb-8" action="/search">
+      <form className="flex gap-2 mb-6" action="/search">
         <input
           type="text"
           name="q"
@@ -30,17 +40,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <button className="px-5 py-3 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">검색</button>
       </form>
 
-      {query && results.length === 0 && (
-        <p className="text-zinc-500 text-sm">
-          &ldquo;{query}&rdquo; 에 대한 검색 결과가 없습니다.
-          <br />
-          <span className="text-xs text-zinc-400">※ 결과 없음이 무혐의를 의미하지는 않습니다.</span>
-        </p>
+      {/* 더치트(TheCheat) 스타일 — 사건 목록보다 먼저, "이 대상은 사기인가?"부터 한눈에 보여준다 */}
+      {verdict && (
+        <div className={`rounded-xl border-2 p-5 mb-6 ${VERDICT_STYLE[verdict.level]}`}>
+          <p className="text-lg font-bold mb-1">{verdict.title}</p>
+          <p className="text-sm opacity-90">{verdict.detail}</p>
+        </div>
       )}
 
       {results.length > 0 && (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-500">⚠️ 관련 제보 {results.length}건</p>
+          <h2 className="text-sm font-semibold text-zinc-500">관련 사건 상세</h2>
           {results.map((r) => (
             <Link
               key={r.caseNumber}
