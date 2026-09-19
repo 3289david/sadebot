@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCurrentReporter } from "@/lib/userSession";
+import { fetchAllGuilds } from "@/lib/discordOAuth";
+import { botConfig } from "@/bot/config";
 import ReportForm from "./ReportForm";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +38,14 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           </a>
         </div>
       ) : (
-        <ReportForm username={reporter.username} />
+        <ReportForm
+          username={reporter.username}
+          guilds={
+            reporter.accessToken
+              ? (await fetchAllGuilds(reporter.accessToken)).filter((g) => g.id !== botConfig.guildId)
+              : []
+          }
+        />
       )}
     </main>
   );

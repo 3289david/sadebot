@@ -1,13 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { submitPublicReport } from "@/lib/actions/publicReport";
 import { DAMAGE_TYPES } from "@/lib/constants";
 
 const initialState = { error: undefined as string | undefined };
 
-export default function ReportForm({ username }: { username: string }) {
+interface ReportGuild {
+  id: string;
+  name: string;
+}
+
+export default function ReportForm({ username, guilds }: { username: string; guilds: ReportGuild[] }) {
   const [state, formAction, pending] = useActionState(submitPublicReport, initialState);
+  const [serverId, setServerId] = useState("");
 
   return (
     <>
@@ -50,6 +57,43 @@ export default function ReportForm({ username }: { username: string }) {
         <div>
           <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>
           <input name="platform" placeholder="예: Discord, OO거래사이트" className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
+        </div>
+
+        <div className="border border-zinc-200 rounded-lg p-3 space-y-2">
+          <label className="block text-sm font-medium">신고 대상 디스코드 서버 (선택 — 디스코드 서버/DM 사기인 경우)</label>
+          {guilds.length > 0 ? (
+            <select
+              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
+              defaultValue=""
+              onChange={(e) => setServerId(e.target.value)}
+            >
+              <option value="">내가 속한 서버에서 선택...</option>
+              {guilds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <a
+              href="/api/auth/discord-user?returnTo=/report&scope=guilds"
+              className="text-xs text-indigo-600 underline"
+            >
+              내가 속한 서버 목록 불러오기 (Discord 추가 권한 필요) →
+            </a>
+          )}
+          <input
+            name="serverId"
+            value={serverId}
+            onChange={(e) => setServerId(e.target.value)}
+            placeholder="서버 ID (목록에서 선택하거나 직접 입력)"
+            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            name="serverInvite"
+            placeholder="서버 초대 링크 (예: discord.gg/xxxxxxx)"
+            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
+          />
         </div>
 
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}

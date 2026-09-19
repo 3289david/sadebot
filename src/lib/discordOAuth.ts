@@ -101,10 +101,16 @@ export interface DiscordUserGuild {
 const MANAGE_GUILD_BIT = BigInt(0x20);
 
 export async function fetchManageableGuilds(accessToken: string): Promise<DiscordUserGuild[]> {
+  const guilds = await fetchAllGuilds(accessToken);
+  return guilds.filter((g) => g.owner || (BigInt(g.permissions) & MANAGE_GUILD_BIT) !== BigInt(0));
+}
+
+// 사기 제보 대상 서버 선택용 — 인증 신청과 달리 "내가 관리하는" 서버가 아니라
+// "내가 속해 있는" 서버 전체가 필요하다 (신고 대상은 남의 서버일 수 있으므로).
+export async function fetchAllGuilds(accessToken: string): Promise<DiscordUserGuild[]> {
   const res = await fetch(`${API}/users/@me/guilds`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return [];
-  const guilds = (await res.json()) as DiscordUserGuild[];
-  return guilds.filter((g) => g.owner || (BigInt(g.permissions) & MANAGE_GUILD_BIT) !== BigInt(0));
+  return (await res.json()) as DiscordUserGuild[];
 }

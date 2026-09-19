@@ -18,13 +18,16 @@ export async function submitPublicReport(_prev: unknown, formData: FormData) {
   const identifiersText = String(formData.get("identifiersText") ?? "").trim();
   const platform = String(formData.get("platform") ?? "").trim() || null;
   const amountRaw = String(formData.get("damageAmount") ?? "").trim();
+  const serverId = String(formData.get("serverId") ?? "").trim();
+  const serverInvite = String(formData.get("serverInvite") ?? "").trim();
 
   if (!description) return { error: "사건 설명을 입력해주세요." };
 
   const rl = await checkReportRateLimit(reporter.discordId);
   if (!rl.allowed) return { error: "짧은 시간 동안 너무 많은 제보가 접수되었습니다. 잠시 후 다시 시도해주세요." };
 
-  const fullText = `${description}\n${identifiersText}`;
+  const serverLines = [serverId && `서버ID: ${serverId}`, serverInvite && `초대링크: ${serverInvite}`].filter(Boolean).join("\n");
+  const fullText = `${description}\n${identifiersText}${serverLines ? `\n${serverLines}` : ""}`;
   const extracted = extractAll(fullText);
   const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(fullText);
   const finalDamageType = guessDamageType(fullText) ?? damageType;

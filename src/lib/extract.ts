@@ -211,6 +211,8 @@ const DAMAGE_TYPE_KEYWORDS: Record<string, string[]> = {
   "계정 거래": ["계정 거래", "계정판매", "계정 사기"],
   "게임 아이템": ["아이템", "게임 재화"],
   "대리 거래": ["대리 거래", "대리구매"],
+  "디스코드 서버": ["디스코드 서버", "디코 서버", "서버에서 사기", "가짜 서버"],
+  "디스코드 DM": ["디스코드 DM", "디스코드 dm", "디코 DM", "디코 dm", "디엠으로", "디엠 사기", "DM으로 사기", "dm으로 사기"],
 };
 
 export function guessDamageType(text: string): string | null {
