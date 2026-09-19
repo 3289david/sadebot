@@ -2,47 +2,56 @@
 
 import { redirect } from "next/navigation";
 import { createCase } from "@/bot/services/caseService";
-import { extractAll, extractDamageAmount, guessDamageType } from "@/lib/extract";
+import { extractDamageAmount } from "@/lib/extract";
 import { checkReportRateLimit } from "@/lib/ratelimit";
 import { postWebhookEmbed } from "@/lib/discordWebhook";
 import { getCurrentReporter } from "@/lib/userSession";
-import { IDENTIFIER_LABEL } from "@/lib/constants";
+import { DAMAGE_TYPES, IDENTIFIER_LABEL } from "@/lib/constants";
 import type { IdentifierType } from "@prisma/client";
 
 export async function submitPublicReport(_prev: unknown, formData: FormData) {
   const reporter = await getCurrentReporter();
   if (!reporter) redirect("/api/auth/discord-user?returnTo=/report");
 
-  const damageType = String(formData.get("damageType") ?? "기타");
+  const damageTypeRaw = String(formData.get("damageType") ?? "");
+  const damageType = DAMAGE_TYPES.includes(damageTypeRaw) ? damageTypeRaw : "기타";
   const description = String(formData.get("description") ?? "").trim();
-  const identifiersText = String(formData.get("identifiersText") ?? "").trim();
   const platform = String(formData.get("platform") ?? "").trim() || null;
   const amountRaw = String(formData.get("damageAmount") ?? "").trim();
-  const serverId = String(formData.get("serverId") ?? "").trim();
-  const serverInvite = String(formData.get("serverInvite") ?? "").trim();
+
+  // 피해자가 항목(유형)을 직접 고르고 값을 그대로 입력한 것만 저장한다 — 자동 인식/추측 없음.
+  const identifierTypes = formData.getAll("identifierType").map(String);
+  const identifierValues = formData.getAll("identifierValue").map(String);
+  const seen = new Set<string>();
+  const identifiers = identifierTypes
+    .map((type, i) => ({ type, value: (identifierValues[i] ?? "").trim() }))
+    .filter((e) => e.value && IDENTIFIER_LABEL[e.type])
+    .filter((e) => {
+      const key = `${e.type}:${e.value}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
   if (!description) return { error: "사건 설명을 입력해주세요." };
 
   const rl = await checkReportRateLimit(reporter.discordId);
   if (!rl.allowed) return { error: "짧은 시간 동안 너무 많은 제보가 접수되었습니다. 잠시 후 다시 시도해주세요." };
 
-  const serverLines = [serverId && `서버ID: ${serverId}`, serverInvite && `초대링크: ${serverInvite}`].filter(Boolean).join("\n");
-  const fullText = `${description}\n${identifiersText}${serverLines ? `\n${serverLines}` : ""}`;
-  const extracted = extractAll(fullText);
-  const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(fullText);
-  const finalDamageType = guessDamageType(fullText) ?? damageType;
+  const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(description);
+  const rawContent = [description, ...identifiers.map((e) => `${IDENTIFIER_LABEL[e.type]}: ${e.value}`)].join("\n");
 
   const { case: created } = await createCase({
-    damageType: finalDamageType,
+    damageType,
     damageAmount,
     occurredAt: null,
     description,
     platform,
     reporterDiscordId: reporter.discordId,
     reporterUsername: reporter.username,
-    rawContent: fullText,
-    autoExtracted: extracted.length > 0,
-    identifiers: extracted.map((e) => ({ type: e.type as IdentifierType, value: e.value, source: "AUTO_EXTRACT" as const })),
+    rawContent,
+    autoExtracted: false,
+    identifiers: identifiers.map((e) => ({ type: e.type as IdentifierType, value: e.value, source: "MANUAL" as const })),
   });
 
   await postWebhookEmbed(
@@ -50,12 +59,12 @@ export async function submitPublicReport(_prev: unknown, formData: FormData) {
     [
       { name: "Case", value: `#${created.caseNumber}`, inline: true },
       { name: "제보자", value: `${reporter.username} (${reporter.discordId})`, inline: true },
-      { name: "유형", value: finalDamageType, inline: true },
+      { name: "유형", value: damageType, inline: true },
       { name: "피해금액", value: damageAmount ? `₩${damageAmount.toLocaleString()}` : "미상", inline: true },
       { name: "관련 플랫폼", value: platform ?? "미상", inline: true },
       {
-        name: "자동 인식 정보",
-        value: extracted.length ? [...new Set(extracted.map((e) => IDENTIFIER_LABEL[e.type] ?? e.type))].map((t) => `• ${t}`).join("\n") : "없음",
+        name: "제보자 입력 정보",
+        value: identifiers.length ? identifiers.map((e) => `• ${IDENTIFIER_LABEL[e.type]}: ${e.value}`).join("\n") : "없음",
       },
       { name: "상태", value: "🟡 검토 필요 (웹 제보)" },
     ],

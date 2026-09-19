@@ -1,20 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useActionState } from "react";
 import { submitPublicReport } from "@/lib/actions/publicReport";
-import { DAMAGE_TYPES } from "@/lib/constants";
+import { DAMAGE_TYPES, IDENTIFIER_LABEL } from "@/lib/constants";
 
 const initialState = { error: undefined as string | undefined };
+
+// 사건 번호 참조용(CASE_REF)은 "상대방 정보"가 아니므로 제외.
+const REPORTABLE_TYPES = Object.keys(IDENTIFIER_LABEL).filter((t) => t !== "CASE_REF");
 
 interface ReportGuild {
   id: string;
   name: string;
 }
 
+interface IdentifierRow {
+  key: number;
+  type: string;
+  value: string;
+}
+
 export default function ReportForm({ username, guilds }: { username: string; guilds: ReportGuild[] }) {
   const [state, formAction, pending] = useActionState(submitPublicReport, initialState);
-  const [serverId, setServerId] = useState("");
+  const rowKeySeq = useRef(0);
+  const makeRow = (type = REPORTABLE_TYPES[0], value = ""): IdentifierRow => ({ key: rowKeySeq.current++, type, value });
+  const [rows, setRows] = useState<IdentifierRow[]>(() => Array.from({ length: 5 }, () => makeRow()));
+
+  const updateRow = (key: number, patch: Partial<IdentifierRow>) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const addRow = () => setRows((rs) => [...rs, makeRow()]);
+  const removeRow = (key: number) => setRows((rs) => rs.filter((r) => r.key !== key));
 
   return (
     <>
@@ -42,32 +58,61 @@ export default function ReportForm({ username, guilds }: { username: string; gui
           <label className="block text-sm font-medium mb-1">사건 설명 *</label>
           <textarea name="description" required rows={5} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">상대방 정보 (선택, 한 줄에 하나씩)</label>
-          <textarea
-            name="identifiersText"
-            rows={5}
-            placeholder={"디스코드ID: 123456789012345678\n전화번호: 010-1234-5678\n계좌번호: 국민은행 12345678901234\n이름: 홍길동"}
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-mono"
-          />
-          <p className="text-xs text-zinc-400 mt-1">
-            &ldquo;항목: 값&rdquo; 형식으로 한 줄에 하나씩 적어주시면 정확하게 인식됩니다.
-          </p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>
-          <input name="platform" placeholder="예: Discord, OO거래사이트" className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
 
-        <div className="border border-zinc-200 rounded-lg p-3 space-y-2">
-          <label className="block text-sm font-medium">신고 대상 디스코드 서버 (선택 — 디스코드 서버/DM 사기인 경우)</label>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            상대방 정보 (선택 — 항목을 고르고 값을 입력하세요. 자동 인식 없이 입력한 그대로 저장됩니다)
+          </label>
+          <div className="space-y-2">
+            {rows.map((row) => (
+              <div key={row.key} className="flex gap-2">
+                <select
+                  name="identifierType"
+                  value={row.type}
+                  onChange={(e) => updateRow(row.key, { type: e.target.value })}
+                  className="w-36 shrink-0 border border-zinc-300 rounded-lg px-2 py-2 text-sm"
+                >
+                  {REPORTABLE_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {IDENTIFIER_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  name="identifierValue"
+                  value={row.value}
+                  onChange={(e) => updateRow(row.key, { value: e.target.value })}
+                  placeholder="값 입력"
+                  className="flex-1 border border-zinc-300 rounded-lg px-3 py-2 text-sm"
+                />
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.key)}
+                    className="px-2 text-zinc-400 hover:text-red-600"
+                    aria-label="이 항목 삭제"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addRow} className="mt-2 text-xs text-indigo-600 underline">
+            + 항목 추가
+          </button>
+
           {guilds.length > 0 ? (
             <select
-              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
               defaultValue=""
-              onChange={(e) => setServerId(e.target.value)}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setRows((rs) => [...rs, makeRow("DISCORD_SERVER", e.target.value)]);
+                e.target.value = "";
+              }}
+              className="mt-2 w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
             >
-              <option value="">내가 속한 서버에서 선택...</option>
+              <option value="">내가 속한 서버를 신고 대상으로 추가...</option>
               {guilds.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -75,25 +120,15 @@ export default function ReportForm({ username, guilds }: { username: string; gui
               ))}
             </select>
           ) : (
-            <a
-              href="/api/auth/discord-user?returnTo=/report&scope=guilds"
-              className="text-xs text-indigo-600 underline"
-            >
-              내가 속한 서버 목록 불러오기 (Discord 추가 권한 필요) →
+            <a href="/api/auth/discord-user?returnTo=/report&scope=guilds" className="mt-2 inline-block text-xs text-indigo-600 underline">
+              내가 속한 서버 목록 불러와서 추가하기 (Discord 추가 권한 필요) →
             </a>
           )}
-          <input
-            name="serverId"
-            value={serverId}
-            onChange={(e) => setServerId(e.target.value)}
-            placeholder="서버 ID (목록에서 선택하거나 직접 입력)"
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <input
-            name="serverInvite"
-            placeholder="서버 초대 링크 (예: discord.gg/xxxxxxx)"
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
-          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>
+          <input name="platform" placeholder="예: Discord, OO거래사이트" className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
         </div>
 
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
