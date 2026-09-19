@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { hasPermission } from "@/lib/rbac";
 import { STATUS_LABEL, IDENTIFIER_LABEL, EVIDENCE_LABEL, DISPUTE_REASON_LABEL } from "@/lib/constants";
+import { LABEL_MAP, normalizeLabel } from "@/lib/extract";
 import {
   approveCaseAction,
   holdCaseAction,
@@ -253,7 +254,21 @@ function RawIdentifierLines({
   caseId: string;
   reports: { id: string; rawContent: string | null; createdAt: Date }[];
 }) {
-  const lines = reports.flatMap((r) => (r.rawContent ?? "").split(/\r?\n/).map((line, idx) => ({ key: `${r.id}:${idx}`, text: line.trim() })).filter((l) => l.text));
+  // "항목: 값" 형식으로 적었다면 항목(라벨) 부분은 DB에 넣지 않는다 — 값만 저장한다.
+  // 라벨이 우리가 아는 항목과 일치하면 드롭다운 기본값으로 미리 골라준다(관리자가 그대로 확인/수정 가능).
+  const LINE_RE = /^\s*([가-힣a-zA-Z0-9\s()[\]]{1,20})[:：]\s*(.+?)\s*$/;
+  const lines = reports.flatMap((r) =>
+    (r.rawContent ?? "")
+      .split(/\r?\n/)
+      .map((raw) => raw.trim())
+      .filter((raw) => raw)
+      .map((raw, idx) => {
+        const m = raw.match(LINE_RE);
+        const value = m ? m[2].trim() : raw;
+        const suggestedType = m ? LABEL_MAP[normalizeLabel(m[1])] : undefined;
+        return { key: `${r.id}:${idx}`, raw, value, suggestedType };
+      }),
+  );
 
   if (lines.length === 0) return null;
 
@@ -261,13 +276,19 @@ function RawIdentifierLines({
     <div className="bg-white rounded-xl border border-amber-300 p-4">
       <h2 className="text-sm font-semibold text-amber-700 mb-1">🔎 상대방 정보 (제보자 원문 — 분류 필요)</h2>
       <p className="text-xs text-neutral-400 mb-3">
-        자동으로 판단하지 않은 원문입니다. 각 줄이 어떤 항목인지 골라서 DB에 등록하세요.
+        자동으로 판단하지 않은 원문입니다. 각 줄이 어떤 항목인지 골라서 DB에 등록하세요. (항목: 값 형식으로 적혀 있으면
+        값만 저장되고, 항목 부분은 드롭다운 기본값으로만 사용됩니다)
       </p>
       <div className="space-y-2">
         {lines.map((l) => (
-          <form key={l.key} action={classifyIdentifierLineAction.bind(null, caseId, l.text)} className="flex items-center gap-2 text-sm">
-            <span className="flex-1 font-mono bg-neutral-50 border border-neutral-200 rounded px-2 py-1 truncate">{l.text}</span>
-            <select name="type" defaultValue="" required className="border border-neutral-300 rounded-md px-2 py-1 text-sm shrink-0">
+          <form key={l.key} action={classifyIdentifierLineAction.bind(null, caseId, l.value)} className="flex items-center gap-2 text-sm">
+            <span className="flex-1 font-mono bg-neutral-50 border border-neutral-200 rounded px-2 py-1 truncate">{l.raw}</span>
+            <select
+              name="type"
+              defaultValue={l.suggestedType && REPORTABLE_TYPES.includes(l.suggestedType) ? l.suggestedType : ""}
+              required
+              className="border border-neutral-300 rounded-md px-2 py-1 text-sm shrink-0"
+            >
               <option value="" disabled>
                 항목 선택...
               </option>

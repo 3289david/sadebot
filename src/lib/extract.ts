@@ -22,7 +22,7 @@ const AMOUNT_KEYWORDS = /(피해\s*금액|입금|송금|보냈|보낸|피해액)
 const PLAIN_AMOUNT = /([\d,]+(?:\.\d+)?)\s*(만원|원)/g;
 
 // "라벨: 값" 한 줄 입력용 라벨 → IdentifierType 매핑. 공백/괄호 없이 비교한다.
-const LABEL_MAP: Record<string, IdentifierType> = {
+export const LABEL_MAP: Record<string, IdentifierType> = {
   "디스코드id": "DISCORD_ID",
   "디스코드아이디": "DISCORD_ID",
   "디코id": "DISCORD_ID",
@@ -69,7 +69,7 @@ const LABEL_MAP: Record<string, IdentifierType> = {
   "관련사건번호": "CASE_REF",
 };
 
-function normalizeLabel(raw: string): string {
+export function normalizeLabel(raw: string): string {
   return raw.trim().toLowerCase().replace(/[\s()[\]:：-]/g, "");
 }
 
