@@ -74,7 +74,7 @@ const command: BotCommand = {
               caseNumber: created.caseNumber,
               reason: "운영진 직접 등록 (/사기꾼추가)",
               reviewerTag: `<@${interaction.user.id}>`,
-              addedFields: [IDENTIFIER_LABEL[idType] ?? idType],
+              identifiers: [{ type: idType, value: idValue }],
             }),
           ],
         });

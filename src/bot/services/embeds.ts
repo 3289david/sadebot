@@ -147,7 +147,12 @@ export function buildNewReportLogEmbed(params: {
   return embed;
 }
 
-export function buildDbRegisterLogEmbed(params: { caseNumber: string; reason: string; reviewerTag: string; addedFields: string[] }) {
+export function buildDbRegisterLogEmbed(params: {
+  caseNumber: string;
+  reason: string;
+  reviewerTag: string;
+  identifiers: { type: string; value: string }[];
+}) {
   return new EmbedBuilder()
     .setColor(EMBED_COLOR.success)
     .setTitle("📕 DB 등록")
@@ -156,7 +161,11 @@ export function buildDbRegisterLogEmbed(params: { caseNumber: string; reason: st
       { name: "등록 사유", value: params.reason },
       { name: "검토 담당자", value: params.reviewerTag, inline: true },
       { name: "등록일", value: new Date().toISOString().replace("T", " ").slice(0, 19), inline: true },
-      { name: "변경된 정보", value: params.addedFields.map((f) => `+ ${f}`).join("\n") || "없음" },
+      {
+        // 관리자 전용 로그 채널 — 마스킹 없이 전체 값을 그대로 표시한다.
+        name: "연관 식별자 (관리자 전용 - 비마스킹)",
+        value: params.identifiers.map((i) => `+ ${IDENTIFIER_LABEL[i.type] ?? i.type}: ${i.value}`).join("\n") || "없음",
+      },
     );
 }
 

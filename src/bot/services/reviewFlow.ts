@@ -85,7 +85,7 @@ export async function handleReviewButton(interaction: ButtonInteraction, caseId:
             caseNumber: c.caseNumber,
             reason: "운영진 승인",
             reviewerTag: `<@${interaction.user.id}>`,
-            addedFields: c.identifiers.map((i) => IDENTIFIER_LABEL[i.type] ?? i.type),
+            identifiers: c.identifiers.map((i) => ({ type: i.type, value: i.value })),
           }),
         ],
       });
