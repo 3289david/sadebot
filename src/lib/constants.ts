@@ -70,4 +70,3 @@ export const EMBED_COLOR = {
 
 // 우리 DB는 우리가 접수/검증한 제보만 담고 있다. 외부 공신력 있는 사기 조회 서비스(더치트)로
 // 교차 확인할 수 있게 링크만 안내한다 — 자동 연동/스크래핑은 하지 않는다 (권한 없는 접근 문제).
-export const THECHEAT_URL = "https://www.police.go.kr/www/security/cyber/cyber04.jsp";

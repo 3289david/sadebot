@@ -1,11 +1,11 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import { THECHEAT_URL } from "@/lib/constants";
+import { buildJoongnaFraudUrl } from "@/lib/joongna";
 
-// 우리 DB 검색 결과 아래에 경찰청 사이버범죄 신고·예방 페이지 링크를 붙여준다 — 자동 조회가 아니라
+// 우리 DB 검색 결과 아래에 중고나라 사기조회 링크를 붙여준다 — 자동 조회가 아니라
 // 사용자가 직접 눌러서 이동하는 외부 링크. 우리 DB만으로 부족할 수 있다는 걸 인지시키는 용도.
-export function buildTheCheatLinkRow() {
+export function buildJoongnaLinkRow(query: string) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setLabel("🔗 경찰청 사이버범죄 확인하기").setStyle(ButtonStyle.Link).setURL(THECHEAT_URL),
+    new ButtonBuilder().setLabel("🔗 외부에서도 확인하기").setStyle(ButtonStyle.Link).setURL(buildJoongnaFraudUrl(query)),
   );
 }
 

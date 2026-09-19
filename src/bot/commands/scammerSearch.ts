@@ -3,7 +3,7 @@ import type { BotCommand } from "@/bot/commands/types";
 import { checkCooldown } from "@/lib/ratelimit";
 import { runSearch } from "@/bot/commands/search";
 import { requireHubGuild } from "@/bot/services/permissions";
-import { buildTheCheatLinkRow } from "@/bot/services/components";
+import { buildJoongnaLinkRow } from "@/bot/services/components";
 
 // 사용자 요청 스펙의 "사기꾼 검색" 기능 — /검색과 동일한 로직을 쓰되 별도 명령어명으로 제공.
 const command: BotCommand = {
@@ -20,7 +20,7 @@ const command: BotCommand = {
     await interaction.deferReply({ flags: 64 });
     const query = interaction.options.getString("검색어", true);
     const embed = await runSearch(query);
-    await interaction.editReply({ embeds: [embed], components: [buildTheCheatLinkRow()] });
+    await interaction.editReply({ embeds: [embed], components: [buildJoongnaLinkRow(query)] });
   },
 };
 

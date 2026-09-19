@@ -4,7 +4,7 @@ import { maskByType } from "@/lib/mask";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
 import { CERT_STATUS_LABEL } from "@/lib/certService";
 import { computeVerdict, type VerdictLevel } from "@/lib/verdict";
-import { THECHEAT_URL } from "@/lib/constants";
+import { buildJoongnaFraudUrl } from "@/lib/joongna";
 
 export const dynamic = "force-dynamic";
 
@@ -42,18 +42,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       </form>
 
       {/* 더치트(TheCheat) 스타일 — 사건 목록보다 먼저, "이 대상은 사기인가?"부터 한눈에 보여준다.
-          아래 외부 링크는 경찰청 사이버범죄 신고·예방 페이지로 연결된다. */}
+          아래 외부 링크는 검색어 형태(이메일/전화번호/계좌번호/그 외)에 맞춰 중고나라 사기조회로 연결된다. */}
       {verdict && (
         <div className={`rounded-xl border-2 p-5 mb-6 ${VERDICT_STYLE[verdict.level]}`}>
           <p className="text-lg font-bold mb-1">{verdict.title}</p>
           <p className="text-sm opacity-90 mb-3">{verdict.detail}</p>
           <a
-            href={THECHEAT_URL}
+            href={buildJoongnaFraudUrl(query)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block text-xs underline opacity-90 hover:opacity-100"
           >
-            🔗 경찰청 사이버범죄 확인하기 (외부 사이트) →
+            🔗 외부에서도 확인하기 (외부 사이트) →
           </a>
         </div>
       )}
