@@ -115,10 +115,11 @@ export function buildNewReportLogEmbed(params: {
   damageType: string;
   damageAmount: number | null;
   platform: string | null;
-  autoIdentifierTypes: string[];
+  autoIdentifierTypes?: string[];
+  rawInfo?: string | null;
   evidenceCount: number;
 }) {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(EMBED_COLOR.danger)
     .setTitle("🚨 신규 사기 제보")
     .addFields(
@@ -127,15 +128,23 @@ export function buildNewReportLogEmbed(params: {
       { name: "유형", value: params.damageType, inline: true },
       { name: "피해금액", value: params.damageAmount ? `₩${params.damageAmount.toLocaleString()}` : "미상", inline: true },
       { name: "관련 플랫폼", value: params.platform ?? "미상", inline: true },
-      {
-        name: "자동 인식 정보",
-        value: params.autoIdentifierTypes.length
-          ? params.autoIdentifierTypes.map((t) => `• ${IDENTIFIER_LABEL[t] ?? t}`).join("\n")
-          : "없음",
-      },
-      { name: "증거", value: `${params.evidenceCount}개`, inline: true },
-      { name: "상태", value: "🟡 검토 필요", inline: true },
     );
+
+  if (params.autoIdentifierTypes?.length) {
+    embed.addFields({
+      name: "자동 인식 정보",
+      value: params.autoIdentifierTypes.map((t) => `• ${IDENTIFIER_LABEL[t] ?? t}`).join("\n"),
+    });
+  }
+  if (params.rawInfo) {
+    embed.addFields({ name: "상대방 정보 (관리자 패널에서 분류 필요)", value: params.rawInfo.slice(0, 1000) });
+  }
+
+  embed.addFields(
+    { name: "증거", value: `${params.evidenceCount}개`, inline: true },
+    { name: "상태", value: "🟡 검토 필요", inline: true },
+  );
+  return embed;
 }
 
 export function buildDbRegisterLogEmbed(params: { caseNumber: string; reason: string; reviewerTag: string; addedFields: string[] }) {

@@ -161,6 +161,29 @@ export async function softDeleteCase(params: { caseId: string; actorId: string; 
   return c;
 }
 
+// 제보자가 적은 "상대방 정보" 원문은 자동으로 항목을 판단하지 않는다 — 관리자가 관리자 패널에서
+// 한 줄씩 확인해 어떤 항목(전화번호/계좌/디스코드ID 등)인지 직접 판단한 뒤 이 함수로 등록한다.
+export async function addCaseIdentifier(params: { caseId: string; type: IdentifierType; value: string; actorId: string }) {
+  const normalized = normalizeIdentifierValue(params.type, params.value);
+  const existing = await prisma.caseIdentifier.findFirst({ where: { caseId: params.caseId, type: params.type, normalized } });
+  if (existing) return existing;
+
+  const created = await prisma.caseIdentifier.create({
+    data: { caseId: params.caseId, type: params.type, value: params.value, normalized, source: "MANUAL" },
+  });
+  await logCaseEvent({
+    caseId: params.caseId,
+    event: "IDENTIFIER_ADDED",
+    actorId: params.actorId,
+    detail: { type: params.type, value: params.value },
+  });
+
+  const matches = await findDuplicateMatches(params.caseId, [{ type: created.type, normalized: created.normalized }]);
+  if (matches.length > 0) await recordDuplicateLinks(params.caseId, matches);
+
+  return created;
+}
+
 // 접수 직후(RECEIVED) 상태는 운영진이 아직 한 번도 보지 않은 상태이므로 공개 검색에서 제외한다.
 // 반려/삭제된 사건도 노출하지 않는다.
 export const PUBLIC_SEARCHABLE_STATUSES: CaseStatus[] = [

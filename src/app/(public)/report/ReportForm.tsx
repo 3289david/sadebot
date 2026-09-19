@@ -1,36 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useActionState } from "react";
 import { submitPublicReport } from "@/lib/actions/publicReport";
-import { DAMAGE_TYPES, IDENTIFIER_LABEL } from "@/lib/constants";
+import { DAMAGE_TYPES } from "@/lib/constants";
 
 const initialState = { error: undefined as string | undefined };
-
-// 사건 번호 참조용(CASE_REF)은 "상대방 정보"가 아니므로 제외.
-const REPORTABLE_TYPES = Object.keys(IDENTIFIER_LABEL).filter((t) => t !== "CASE_REF");
 
 interface ReportGuild {
   id: string;
   name: string;
 }
 
-interface IdentifierRow {
-  key: number;
-  type: string;
-  value: string;
-}
-
 export default function ReportForm({ username, guilds }: { username: string; guilds: ReportGuild[] }) {
   const [state, formAction, pending] = useActionState(submitPublicReport, initialState);
-  const rowKeySeq = useRef(0);
-  const makeRow = (type = REPORTABLE_TYPES[0], value = ""): IdentifierRow => ({ key: rowKeySeq.current++, type, value });
-  const [rows, setRows] = useState<IdentifierRow[]>(() => Array.from({ length: 5 }, () => makeRow()));
+  const [identifiersText, setIdentifiersText] = useState("");
 
-  const updateRow = (key: number, patch: Partial<IdentifierRow>) =>
-    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const addRow = () => setRows((rs) => [...rs, makeRow()]);
-  const removeRow = (key: number) => setRows((rs) => rs.filter((r) => r.key !== key));
+  const addGuildLine = (guildId: string, guildName: string) => {
+    const line = `디스코드 서버: ${guildName} (${guildId})`;
+    setIdentifiersText((t) => (t ? `${t}\n${line}` : line));
+  };
 
   return (
     <>
@@ -58,56 +47,27 @@ export default function ReportForm({ username, guilds }: { username: string; gui
           <label className="block text-sm font-medium mb-1">사건 설명 *</label>
           <textarea name="description" required rows={5} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
         </div>
-
         <div>
-          <label className="block text-sm font-medium mb-1">
-            상대방 정보 (선택 — 항목을 고르고 값을 입력하세요. 자동 인식 없이 입력한 그대로 저장됩니다)
-          </label>
-          <div className="space-y-2">
-            {rows.map((row) => (
-              <div key={row.key} className="flex gap-2">
-                <select
-                  name="identifierType"
-                  value={row.type}
-                  onChange={(e) => updateRow(row.key, { type: e.target.value })}
-                  className="w-36 shrink-0 border border-zinc-300 rounded-lg px-2 py-2 text-sm"
-                >
-                  {REPORTABLE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {IDENTIFIER_LABEL[t]}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="identifierValue"
-                  value={row.value}
-                  onChange={(e) => updateRow(row.key, { value: e.target.value })}
-                  placeholder="값 입력"
-                  className="flex-1 border border-zinc-300 rounded-lg px-3 py-2 text-sm"
-                />
-                {rows.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.key)}
-                    className="px-2 text-zinc-400 hover:text-red-600"
-                    aria-label="이 항목 삭제"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <button type="button" onClick={addRow} className="mt-2 text-xs text-indigo-600 underline">
-            + 항목 추가
-          </button>
-
+          <label className="block text-sm font-medium mb-1">상대방 정보 (선택, 한 줄에 하나씩)</label>
+          <textarea
+            name="identifiersText"
+            rows={5}
+            value={identifiersText}
+            onChange={(e) => setIdentifiersText(e.target.value)}
+            placeholder={"디스코드ID: 123456789012345678\n전화번호: 010-1234-5678\n계좌번호: 국민은행 12345678901234\n이름: 홍길동"}
+            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-mono"
+          />
+          <p className="text-xs text-zinc-400 mt-1">
+            자동으로 항목을 판단하지 않습니다. 입력하신 내용 그대로 저장되며, 운영진이 검토하면서 어떤 정보인지 직접
+            확인해 등록합니다.
+          </p>
           {guilds.length > 0 ? (
             <select
               defaultValue=""
               onChange={(e) => {
                 if (!e.target.value) return;
-                setRows((rs) => [...rs, makeRow("DISCORD_SERVER", e.target.value)]);
+                const guild = guilds.find((g) => g.id === e.target.value);
+                if (guild) addGuildLine(guild.id, guild.name);
                 e.target.value = "";
               }}
               className="mt-2 w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
@@ -125,7 +85,6 @@ export default function ReportForm({ username, guilds }: { username: string; gui
             </a>
           )}
         </div>
-
         <div>
           <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>
           <input name="platform" placeholder="예: Discord, OO거래사이트" className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />

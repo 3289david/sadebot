@@ -7,15 +7,14 @@ import {
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
-import { extractLabeledLines, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
+import { extractDamageAmount, guessDamageType } from "@/lib/extract";
 import { createCase } from "@/bot/services/caseService";
 import { checkReportRateLimit } from "@/lib/ratelimit";
-import { buildAutoExtractEmbed, buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
+import { buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
 import { safeSendDm } from "@/bot/services/dm";
 import { createCaseEvidenceThread, createDisputeEvidenceThread } from "@/bot/services/evidenceThreadFlow";
 import { botConfig } from "@/bot/config";
 import { DAMAGE_TYPES } from "@/lib/constants";
-import type { IdentifierType } from "@prisma/client";
 
 export const REPORT_MODAL_ID = "sadebot_report_modal";
 export const DISPUTE_MODAL_ID = "sadebot_dispute_modal";
@@ -84,9 +83,8 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
   const identifiersText = interaction.fields.getTextInputValue("identifiersText").trim();
   const platform = interaction.fields.getTextInputValue("platform").trim() || null;
 
-  const fullText = `${description}\n${identifiersText}`;
-  // "항목: 값" 형식으로 직접 적은 줄만 인식한다 — 설명 본문에서 정규식으로 값을 추측하지 않는다.
-  const extracted = extractLabeledLines(identifiersText);
+  // 상대방 정보는 자동으로 항목을 판단하지 않는다 — 제보자가 적은 원문 그대로 저장해두고,
+  // 관리자 패널에서 한 줄씩 확인해 어떤 항목인지 직접 판단해 DB(CaseIdentifier)에 등록한다.
   const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(description);
   const finalDamageType = DAMAGE_TYPES.includes(damageType) ? damageType : guessDamageType(description) ?? damageType;
 
@@ -99,9 +97,9 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
     reporterDiscordId: interaction.user.id,
     reporterUsername: interaction.user.username,
     channelId: interaction.channelId ?? undefined,
-    rawContent: fullText,
+    rawContent: identifiersText,
     autoExtracted: false,
-    identifiers: extracted.map((e) => ({ type: e.type as IdentifierType, value: e.value, source: "MANUAL" as const })),
+    identifiers: [],
   });
 
   await interaction.editReply(
@@ -123,16 +121,13 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
               damageType: finalDamageType,
               damageAmount,
               platform,
-              autoIdentifierTypes: [...new Set(extracted.map((e) => e.type))],
+              rawInfo: identifiersText || null,
               evidenceCount: 0,
             }),
           ],
           components: [buildReviewActionRow(created.id)],
         });
 
-        if (extracted.length > 0 || damageAmount || finalDamageType) {
-          await logChannel.send({ embeds: [buildAutoExtractEmbed(extracted, damageAmount, finalDamageType)] });
-        }
         if (duplicateMatches.length > 0) {
           await logChannel.send({ embeds: [buildDuplicateLinkEmbed(duplicateMatches)] });
         }

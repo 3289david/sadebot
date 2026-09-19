@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/rbac";
-import { changeCaseStatus, softDeleteCase } from "@/bot/services/caseService";
+import { changeCaseStatus, softDeleteCase, addCaseIdentifier } from "@/bot/services/caseService";
 import { notifyEvidenceThread, notifyDisputeEvidenceThread } from "@/bot/services/evidenceFlow";
 import { sendDmViaRest } from "@/lib/discordRest";
 import { postWebhookEmbed } from "@/lib/discordWebhook";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
 import { logAudit, logCaseEvent } from "@/lib/audit";
-import type { CaseStatus, DisputeStatus } from "@prisma/client";
+import type { CaseStatus, DisputeStatus, IdentifierType } from "@prisma/client";
 
 async function notifyReporter(caseId: string, before: CaseStatus, after: CaseStatus, message?: string) {
   const c = await prisma.case.findUnique({ where: { id: caseId } });
@@ -132,6 +132,20 @@ export async function editCaseFieldAction(caseId: string, formData: FormData) {
     ],
     0xfaa61a,
   );
+  revalidatePath(`/admin/cases/${caseId}`);
+}
+
+export async function classifyIdentifierLineAction(caseId: string, value: string, formData: FormData) {
+  const type = String(formData.get("type") ?? "") as IdentifierType;
+
+  const admin = await requireAdmin();
+  requirePermission(admin.role, "EDIT_CASE");
+
+  const trimmed = value.trim();
+  if (!trimmed || !IDENTIFIER_LABEL[type]) return;
+
+  await addCaseIdentifier({ caseId, type, value: trimmed, actorId: admin.id });
+  await logAudit({ actorId: admin.id, action: "CASE_IDENTIFIER_CLASSIFY", targetType: "Case", targetId: caseId, detail: { type, value: trimmed } });
   revalidatePath(`/admin/cases/${caseId}`);
 }
 

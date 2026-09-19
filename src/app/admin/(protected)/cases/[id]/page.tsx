@@ -13,6 +13,7 @@ import {
   editCaseFieldAction,
   resolveDisputeAction,
   resolveDuplicateAction,
+  classifyIdentifierLineAction,
 } from "@/lib/actions/adminCase";
 import { logAudit } from "@/lib/audit";
 
@@ -108,6 +109,8 @@ export default async function AdminCaseDetailPage({ params }: { params: Promise<
           </details>
         )}
       </div>
+
+      {canEdit && <RawIdentifierLines caseId={c.id} reports={c.reports} />}
 
       <div className="bg-white rounded-xl border border-neutral-200 p-4">
         <h2 className="text-sm font-semibold text-neutral-500 mb-2">연관 식별자 (원본 - 관리자 전용)</h2>
@@ -236,6 +239,48 @@ function Field({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-neutral-400 text-xs">{label}</dt>
       <dd>{value}</dd>
+    </div>
+  );
+}
+
+// 사건 번호 참조용(CASE_REF)은 "상대방 정보" 분류 대상이 아니므로 제외.
+const REPORTABLE_TYPES = Object.keys(IDENTIFIER_LABEL).filter((t) => t !== "CASE_REF");
+
+function RawIdentifierLines({
+  caseId,
+  reports,
+}: {
+  caseId: string;
+  reports: { id: string; rawContent: string | null; createdAt: Date }[];
+}) {
+  const lines = reports.flatMap((r) => (r.rawContent ?? "").split(/\r?\n/).map((line, idx) => ({ key: `${r.id}:${idx}`, text: line.trim() })).filter((l) => l.text));
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-amber-300 p-4">
+      <h2 className="text-sm font-semibold text-amber-700 mb-1">🔎 상대방 정보 (제보자 원문 — 분류 필요)</h2>
+      <p className="text-xs text-neutral-400 mb-3">
+        자동으로 판단하지 않은 원문입니다. 각 줄이 어떤 항목인지 골라서 DB에 등록하세요.
+      </p>
+      <div className="space-y-2">
+        {lines.map((l) => (
+          <form key={l.key} action={classifyIdentifierLineAction.bind(null, caseId, l.text)} className="flex items-center gap-2 text-sm">
+            <span className="flex-1 font-mono bg-neutral-50 border border-neutral-200 rounded px-2 py-1 truncate">{l.text}</span>
+            <select name="type" defaultValue="" required className="border border-neutral-300 rounded-md px-2 py-1 text-sm shrink-0">
+              <option value="" disabled>
+                항목 선택...
+              </option>
+              {REPORTABLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {IDENTIFIER_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            <button className="px-3 py-1 rounded-md bg-indigo-600 text-white text-sm shrink-0">DB에 추가</button>
+          </form>
+        ))}
+      </div>
     </div>
   );
 }
