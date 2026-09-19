@@ -4,6 +4,7 @@ import { searchCases, logSearch } from "@/bot/services/caseService";
 import { buildSearchResultEmbed } from "@/bot/services/embeds";
 import { checkCooldown } from "@/lib/ratelimit";
 import { requireHubGuild } from "@/bot/services/permissions";
+import { buildTheCheatLinkRow } from "@/bot/services/components";
 
 async function runSearch(query: string) {
   const results = await searchCases(query, { publicOnly: true });
@@ -25,7 +26,7 @@ const command: BotCommand = {
     await interaction.deferReply({ flags: 64 });
     const query = interaction.options.getString("검색어", true);
     const embed = await runSearch(query);
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed], components: [buildTheCheatLinkRow()] });
   },
 };
 

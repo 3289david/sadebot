@@ -209,9 +209,10 @@ export async function handlePanelSearchModalSubmit(interaction: ModalSubmitInter
   const query = interaction.fields.getTextInputValue("query").trim();
   const { searchCases, logSearch } = await import("@/bot/services/caseService");
   const { buildSearchResultEmbed } = await import("@/bot/services/embeds");
+  const { buildTheCheatLinkRow } = await import("@/bot/services/components");
   const results = await searchCases(query, { publicOnly: true });
   await logSearch("DISCORD");
-  await interaction.editReply({ embeds: [buildSearchResultEmbed(query, results)] });
+  await interaction.editReply({ embeds: [buildSearchResultEmbed(query, results)], components: [buildTheCheatLinkRow()] });
 }
 
 export function buildPanelDisputeModal() {

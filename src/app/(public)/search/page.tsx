@@ -4,6 +4,7 @@ import { maskByType } from "@/lib/mask";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
 import { CERT_STATUS_LABEL } from "@/lib/certService";
 import { computeVerdict, type VerdictLevel } from "@/lib/verdict";
+import { THECHEAT_URL } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {verdict && (
         <div className={`rounded-xl border-2 p-5 mb-6 ${VERDICT_STYLE[verdict.level]}`}>
           <p className="text-lg font-bold mb-1">{verdict.title}</p>
-          <p className="text-sm opacity-90">{verdict.detail}</p>
+          <p className="text-sm opacity-90 mb-3">{verdict.detail}</p>
+          <a
+            href={THECHEAT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs underline opacity-90 hover:opacity-100"
+          >
+            🔗 더치트에서도 확인하기 (외부 사이트) →
+          </a>
         </div>
       )}
 
