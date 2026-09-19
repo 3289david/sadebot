@@ -3,8 +3,7 @@ import type { BotCommand } from "@/bot/commands/types";
 import { prisma } from "@/lib/prisma";
 import { buildCaseDetailEmbedPublic } from "@/bot/services/embeds";
 import { requireHubGuild } from "@/bot/services/permissions";
-
-const PUBLIC_STATUSES = ["REVIEWING", "NEEDS_MORE_INFO", "VERIFIED", "DISPUTED", "ON_HOLD", "EXPLAINED"];
+import { publicCaseWhere } from "@/bot/services/caseService";
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -17,7 +16,7 @@ const command: BotCommand = {
     const raw = interaction.options.getString("사건번호", true).toUpperCase().replace(/^CASE#?/, "").trim();
 
     const c = await prisma.case.findFirst({
-      where: { caseNumber: raw, status: { in: PUBLIC_STATUSES as never } },
+      where: { caseNumber: raw, ...publicCaseWhere() },
       include: { identifiers: true, _count: { select: { reports: true, evidence: true, disputes: true } } },
     });
 

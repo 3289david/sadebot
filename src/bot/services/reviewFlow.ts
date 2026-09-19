@@ -11,6 +11,7 @@ import { checkBotPermission } from "@/bot/services/permissions";
 import { changeCaseStatus, softDeleteCase } from "@/bot/services/caseService";
 import { buildStatusChangeDmEmbed, buildDbRegisterLogEmbed, buildDeleteLogEmbed } from "@/bot/services/embeds";
 import { safeSendDm } from "@/bot/services/dm";
+import { notifyEvidenceThread, notifyDisputeEvidenceThread } from "@/bot/services/evidenceFlow";
 import { logAudit, logCaseEvent } from "@/lib/audit";
 import { IDENTIFIER_LABEL, STATUS_LABEL } from "@/lib/constants";
 import type { CaseStatus } from "@prisma/client";
@@ -107,6 +108,7 @@ export async function handleNeedInfoModalSubmit(interaction: ModalSubmitInteract
   if (result.reporterDiscordId && c) {
     await safeSendDm(interaction.client, result.reporterDiscordId, buildStatusChangeDmEmbed({ caseNumber: c.caseNumber, before: result.before, after: result.after, message }));
   }
+  await notifyEvidenceThread(caseId, result.reporterDiscordId, message);
   await interaction.editReply(`✅ 추가자료 요청 메시지를 전송했습니다.`);
 }
 
@@ -179,12 +181,35 @@ const DISPUTE_STATUS_BY_ACTION: Record<string, "RESOLVED_KEEP" | "RESOLVED_HIDE"
   delete: "RESOLVED_DELETE",
 };
 
+const DISPUTE_NEEDINFO_MODAL_ID = "sadebot_dispute_needinfo_modal";
+
 export async function handleDisputeButton(interaction: ButtonInteraction, disputeId: string, action: string) {
   const perm = await checkBotPermission(interaction.user.id, "RESOLVE_DISPUTE");
   if (!perm.ok || !perm.adminId) {
     await interaction.reply({ content: "⛔ 이의제기 처리 권한이 없습니다.", flags: 64 });
     return;
   }
+
+  if (action === "needinfo") {
+    await interaction.showModal(
+      new ModalBuilder()
+        .setCustomId(`${DISPUTE_NEEDINFO_MODAL_ID}:${disputeId}`)
+        .setTitle("추가자료 요청 메시지")
+        .addComponents(
+          new ActionRowBuilder<TextInputBuilder>().addComponents(
+            new TextInputBuilder()
+              .setCustomId("message")
+              .setLabel("이의제기자에게 전달할 메시지")
+              .setStyle(TextInputStyle.Paragraph)
+              .setRequired(true)
+              .setPlaceholder("예: 환불 내역 캡처를 증거 스레드에 추가로 제출해주세요.")
+              .setMaxLength(500),
+          ),
+        ),
+    );
+    return;
+  }
+
   await interaction.deferUpdate();
 
   const dispute = await prisma.dispute.findUnique({ where: { id: disputeId }, include: { case: true } });
@@ -199,8 +224,6 @@ export async function handleDisputeButton(interaction: ButtonInteraction, disput
   if (action === "hide") {
     await prisma.case.update({ where: { id: dispute.caseId }, data: { isPublic: false, visibility: "HIDDEN" } });
     await logCaseEvent({ caseId: dispute.caseId, event: "DISPUTE_RESOLVED", actorId: perm.adminId, detail: { action } });
-  } else if (action === "needinfo") {
-    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: perm.adminId });
   } else if (action === "delete") {
     await softDeleteCase({ caseId: dispute.caseId, actorId: perm.adminId, reason: "이의제기 확인 결과 - 잘못된 제보로 판단" });
   } else {
@@ -225,6 +248,38 @@ export async function handleDisputeButton(interaction: ButtonInteraction, disput
   }
 }
 
+export async function handleDisputeNeedInfoModalSubmit(interaction: ModalSubmitInteraction, disputeId: string) {
+  const perm = await checkBotPermission(interaction.user.id, "RESOLVE_DISPUTE");
+  if (!perm.ok || !perm.adminId) {
+    await interaction.reply({ content: "⛔ 이의제기 처리 권한이 없습니다.", flags: 64 });
+    return;
+  }
+  await interaction.deferReply({ flags: 64 });
+
+  const message = interaction.fields.getTextInputValue("message").trim();
+  const dispute = await prisma.dispute.findUnique({ where: { id: disputeId }, include: { case: true } });
+  if (!dispute) {
+    await interaction.editReply("이의제기를 찾을 수 없습니다.");
+    return;
+  }
+
+  await prisma.dispute.update({
+    where: { id: disputeId },
+    data: { status: "RESOLVED_NEED_MORE_INFO", resolvedById: perm.adminId, resolvedAt: new Date() },
+  });
+  await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: perm.adminId, message });
+  await logAudit({ actorId: perm.adminId, action: "DISPUTE_RESOLVE", targetType: "Dispute", targetId: disputeId, detail: { action: "needinfo", message } });
+
+  await safeSendDm(
+    interaction.client,
+    dispute.submitterId,
+    buildStatusChangeDmEmbed({ caseNumber: dispute.case.caseNumber, before: "DISPUTED", after: "NEEDS_MORE_INFO", message }),
+  );
+  await notifyDisputeEvidenceThread(disputeId, dispute.submitterId, message);
+
+  await interaction.editReply("✅ 추가자료 요청 메시지를 전송했습니다.");
+}
+
 export async function handleDuplicateButton(interaction: ButtonInteraction, newCaseId: string, existingCaseId: string, action: "link" | "separate") {
   const perm = await checkBotPermission(interaction.user.id, "REVIEW_REPORT");
   if (!perm.ok || !perm.adminId) {
@@ -246,4 +301,4 @@ export async function handleDuplicateButton(interaction: ButtonInteraction, newC
   }
 }
 
-export { NEEDINFO_MODAL_ID, REJECT_MODAL_ID };
+export { NEEDINFO_MODAL_ID, REJECT_MODAL_ID, DISPUTE_NEEDINFO_MODAL_ID };

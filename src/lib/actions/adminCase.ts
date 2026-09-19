@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/actions/adminAuth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/rbac";
 import { changeCaseStatus, softDeleteCase } from "@/bot/services/caseService";
+import { notifyEvidenceThread, notifyDisputeEvidenceThread } from "@/bot/services/evidenceFlow";
 import { sendDmViaRest } from "@/lib/discordRest";
 import { postWebhookEmbed } from "@/lib/discordWebhook";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
@@ -72,6 +73,7 @@ export async function needInfoCaseAction(caseId: string, formData: FormData) {
   requirePermission(admin.role, "APPROVE_REJECT");
   const result = await changeCaseStatus({ caseId, newStatus: "NEEDS_MORE_INFO", actorId: admin.id, message });
   await notifyReporter(caseId, result.before, result.after, message);
+  await notifyEvidenceThread(caseId, result.reporterDiscordId, message);
   revalidatePath(`/admin/cases/${caseId}`);
 }
 
@@ -140,27 +142,30 @@ const DISPUTE_STATUS_MAP: Record<string, DisputeStatus> = {
   delete: "RESOLVED_DELETE",
 };
 
-export async function resolveDisputeAction(disputeId: string, action: "keep" | "hide" | "needinfo" | "delete") {
+export async function resolveDisputeAction(disputeId: string, action: "keep" | "hide" | "needinfo" | "delete", formData?: FormData) {
   const admin = await requireAdmin();
   requirePermission(admin.role, "RESOLVE_DISPUTE");
 
+  const message = String(formData?.get("message") ?? "").trim() || undefined;
   const dispute = await prisma.dispute.findUniqueOrThrow({ where: { id: disputeId }, include: { case: true } });
   await prisma.dispute.update({ where: { id: disputeId }, data: { status: DISPUTE_STATUS_MAP[action], resolvedById: admin.id, resolvedAt: new Date() } });
 
   if (action === "hide") {
     await prisma.case.update({ where: { id: dispute.caseId }, data: { isPublic: false, visibility: "HIDDEN" } });
   } else if (action === "needinfo") {
-    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: admin.id });
+    await changeCaseStatus({ caseId: dispute.caseId, newStatus: "NEEDS_MORE_INFO", actorId: admin.id, message });
+    await notifyDisputeEvidenceThread(disputeId, dispute.submitterId, message ?? "추가 증거 자료를 제출해주세요.");
   } else if (action === "delete") {
     await softDeleteCase({ caseId: dispute.caseId, actorId: admin.id, reason: "이의제기 확인 결과 - 잘못된 제보로 판단" });
   } else {
     await changeCaseStatus({ caseId: dispute.caseId, newStatus: "VERIFIED", actorId: admin.id });
   }
 
-  await logAudit({ actorId: admin.id, action: "DISPUTE_RESOLVE", targetType: "Dispute", targetId: disputeId, detail: { action } });
+  await logAudit({ actorId: admin.id, action: "DISPUTE_RESOLVE", targetType: "Dispute", targetId: disputeId, detail: { action, message } });
   await sendDmViaRest(dispute.submitterId, "⚖️ 이의제기 처리 결과", [
     { name: "CASE", value: `#${dispute.case.caseNumber}`, inline: true },
     { name: "처리 결과", value: action },
+    ...(message ? [{ name: "메시지", value: message }] : []),
   ]);
 
   revalidatePath("/admin/disputes");

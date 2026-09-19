@@ -6,14 +6,13 @@ import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
-  ThreadAutoArchiveDuration,
-  ChannelType,
 } from "discord.js";
 import { extractAll, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
 import { createCase } from "@/bot/services/caseService";
 import { checkReportRateLimit } from "@/lib/ratelimit";
 import { buildAutoExtractEmbed, buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
 import { safeSendDm } from "@/bot/services/dm";
+import { createCaseEvidenceThread, createDisputeEvidenceThread } from "@/bot/services/evidenceThreadFlow";
 import { botConfig } from "@/bot/config";
 import { DAMAGE_TYPES } from "@/lib/constants";
 import type { IdentifierType } from "@prisma/client";
@@ -142,66 +141,7 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
     }
   }
 
-  await createEvidenceThread(interaction.client, created.caseNumber, created.id, interaction.user.id);
-}
-
-// 증거 자료 제출 스레드는 관리자 로그 채널이 아니라 전용 채널(DISCORD_EVIDENCE_CHANNEL_ID) 아래에 만든다.
-async function createEvidenceThread(client: import("discord.js").Client, caseNumber: string, caseId: string, reporterId: string) {
-  if (!botConfig.evidenceChannelId) return;
-  try {
-    const evidenceChannel = await client.channels.fetch(botConfig.evidenceChannelId);
-    if (!evidenceChannel?.isTextBased() || !("threads" in evidenceChannel) || evidenceChannel.type !== ChannelType.GuildText) return;
-
-    const msg = await evidenceChannel.send(`🗂️ CASE #${caseNumber} 증거 자료 제출`);
-    const thread = await evidenceChannel.threads.create({
-      name: `사건-${caseNumber}-증거`,
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
-      startMessage: msg.id,
-    });
-    await thread.send(
-      `<@${reporterId}> 이 스레드에 증거 파일(채팅 캡처, 송금 내역, 거래 화면 등)을 첨부해서 보내주세요. 24시간 동안 자동 수집됩니다.`,
-    );
-    collectEvidence(thread, reporterId, caseId);
-  } catch (err) {
-    console.error("[reportFlow] evidence thread creation failed", err);
-  }
-}
-
-async function collectEvidence(thread: import("discord.js").ThreadChannel, reporterId: string, caseId: string) {
-  const { prisma } = await import("@/lib/prisma");
-  const { saveEvidenceBuffer } = await import("@/lib/storage");
-  const { logCaseEvent } = await import("@/lib/audit");
-
-  const collector = thread.createMessageCollector({
-    filter: (m) => m.author.id === reporterId && m.attachments.size > 0,
-    time: 24 * 60 * 60 * 1000,
-  });
-
-  collector.on("collect", async (message) => {
-    for (const attachment of message.attachments.values()) {
-      try {
-        const res = await fetch(attachment.url);
-        const buffer = Buffer.from(await res.arrayBuffer());
-        const saved = await saveEvidenceBuffer(buffer, attachment.name ?? "evidence");
-        await prisma.evidence.create({
-          data: {
-            caseId,
-            type: "OTHER",
-            storagePath: saved.storagePath,
-            fileHash: saved.fileHash,
-            fileName: attachment.name ?? "evidence",
-            mimeType: attachment.contentType ?? undefined,
-            sizeBytes: saved.sizeBytes,
-            uploadedBy: reporterId,
-          },
-        });
-        await logCaseEvent({ caseId, event: "EVIDENCE_ADDED", actorId: reporterId, detail: { fileName: attachment.name } });
-        await message.react("✅");
-      } catch (err) {
-        console.error("[collectEvidence] failed to save attachment", err);
-      }
-    }
-  });
+  await createCaseEvidenceThread(interaction.client, created.caseNumber, created.id, interaction.user.id);
 }
 
 export function buildDisputeModal(caseNumber: string) {
@@ -336,6 +276,8 @@ async function handleDisputeModalSubmitCore(interaction: ModalSubmitInteraction,
       console.error("[dispute] log channel post failed", err);
     }
   }
+
+  await createDisputeEvidenceThread(interaction.client, caseNumber, dispute.id, interaction.user.id);
 }
 
 export async function safeReplyEphemeral(interaction: ButtonInteraction | ChatInputCommandInteraction, content: string) {

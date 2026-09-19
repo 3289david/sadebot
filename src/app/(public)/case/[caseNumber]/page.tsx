@@ -3,18 +3,16 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { maskByType } from "@/lib/mask";
 import { STATUS_LABEL, IDENTIFIER_LABEL } from "@/lib/constants";
-import type { CaseStatus } from "@prisma/client";
+import { publicCaseWhere } from "@/bot/services/caseService";
 
 export const dynamic = "force-dynamic";
-
-const PUBLIC_STATUSES: CaseStatus[] = ["REVIEWING", "NEEDS_MORE_INFO", "VERIFIED", "DISPUTED", "ON_HOLD", "EXPLAINED"];
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ caseNumber: string }> }) {
   const { caseNumber } = await params;
   const normalized = caseNumber.toUpperCase().replace(/^CASE#?/, "");
 
   const c = await prisma.case.findFirst({
-    where: { caseNumber: normalized, status: { in: PUBLIC_STATUSES } },
+    where: { caseNumber: normalized, ...publicCaseWhere() },
     include: {
       identifiers: true,
       _count: { select: { reports: true, evidence: true, disputes: true } },

@@ -181,9 +181,13 @@ export default async function AdminCaseDetailPage({ params }: { params: Promise<
                   <form action={resolveDisputeAction.bind(null, d.id, "hide")}>
                     <button className="text-xs px-2 py-1 rounded bg-indigo-600 text-white">임시 비공개</button>
                   </form>
-                  <form action={resolveDisputeAction.bind(null, d.id, "needinfo")}>
-                    <button className="text-xs px-2 py-1 rounded bg-amber-500 text-white">추가자료 요청</button>
-                  </form>
+                  <details className="inline-block">
+                    <summary className="text-xs px-2 py-1 rounded bg-amber-500 text-white cursor-pointer list-none inline-block">추가자료 요청</summary>
+                    <form action={resolveDisputeAction.bind(null, d.id, "needinfo")} className="mt-1 flex gap-1">
+                      <input name="message" placeholder="이의제기자에게 전달할 메시지" required className="border border-neutral-300 rounded px-2 py-1 text-xs w-56" />
+                      <button className="px-2 py-1 rounded bg-amber-500 text-white text-xs">전송</button>
+                    </form>
+                  </details>
                   <form action={resolveDisputeAction.bind(null, d.id, "delete")}>
                     <button className="text-xs px-2 py-1 rounded bg-red-600 text-white">삭제</button>
                   </form>

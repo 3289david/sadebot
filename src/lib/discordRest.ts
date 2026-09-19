@@ -35,6 +35,23 @@ export async function sendChannelEmbed(
   }
 }
 
+export async function sendChannelMessage(channelId: string, content: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token || !channelId) return false;
+  try {
+    const res = await fetch(`${API}/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) console.error("[discordRest] sendChannelMessage failed", res.status, await res.text());
+    return res.ok;
+  } catch (err) {
+    console.error("[discordRest] sendChannelMessage error", err);
+    return false;
+  }
+}
+
 export async function fetchGuild(guildId: string) {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return null;

@@ -19,9 +19,11 @@ import {
   handleRejectModalSubmit,
   handleCaseViewButton,
   handleDisputeButton,
+  handleDisputeNeedInfoModalSubmit,
   handleDuplicateButton,
   NEEDINFO_MODAL_ID,
   REJECT_MODAL_ID,
+  DISPUTE_NEEDINFO_MODAL_ID,
 } from "@/bot/services/reviewFlow";
 import { getStats } from "@/bot/services/statsService";
 import { buildStatsEmbed } from "@/bot/services/embeds";
@@ -111,6 +113,10 @@ export function registerInteractionHandler(client: Client) {
         if (customId.startsWith(`${REJECT_MODAL_ID}:`)) {
           const caseId = customId.split(":")[1];
           return void (await handleRejectModalSubmit(interaction, caseId));
+        }
+        if (customId.startsWith(`${DISPUTE_NEEDINFO_MODAL_ID}:`)) {
+          const disputeId = customId.split(":")[1];
+          return void (await handleDisputeNeedInfoModalSubmit(interaction, disputeId));
         }
         if (customId.startsWith("autoextract_edit_modal:")) {
           const draftId = customId.split(":")[1];

@@ -129,6 +129,7 @@ model Case {
   deletedAt     DateTime?
   deletedById   String?
   deleteReason  String?
+  evidenceThreadId String? @unique // 증거 제출 스레드 ID — 봇 재시작에도 살아남도록 DB에 저장 (인메모리 컬렉터 대신 messageCreate에서 조회)
 
   reports     Report[]
   identifiers CaseIdentifier[]
@@ -176,6 +177,8 @@ model Evidence {
   caseId      String
   case        Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
   reportId    String?
+  disputeId   String? // 이의제기 과정에서 제출된 증거면 설정 (제보 증거와 구분)
+  dispute     Dispute?     @relation(fields: [disputeId], references: [id], onDelete: SetNull)
   type        EvidenceType
   storagePath String // 로컬/오브젝트 스토리지 경로 (공개 URL 아님)
   fileHash    String
@@ -188,21 +191,25 @@ model Evidence {
   deletedAt   DateTime?
 
   @@index([caseId])
+  @@index([disputeId])
 }
 
 model Dispute {
-  id             String        @id @default(cuid())
-  caseId         String
-  case           Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  submitterId    String // discordId 또는 웹 세션 식별자
-  reason         DisputeReason
-  reasonDetail   String
-  evidencePaths  String[]      @default([])
-  status         DisputeStatus @default(PENDING)
-  resolution     String?
-  resolvedById   String?
-  resolvedAt     DateTime?
-  createdAt      DateTime      @default(now())
+  id               String        @id @default(cuid())
+  caseId           String
+  case             Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  submitterId      String // discordId 또는 웹 세션 식별자
+  reason           DisputeReason
+  reasonDetail     String
+  evidencePaths    String[]      @default([])
+  evidenceThreadId String?       @unique // 이의제기 증거 제출 스레드 (Case와 동일한 방식 - DB에 저장해 봇 재시작에도 유지)
+  status           DisputeStatus @default(PENDING)
+  resolution       String?
+  resolvedById     String?
+  resolvedAt       DateTime?
+  createdAt        DateTime      @default(now())
+
+  evidence Evidence[]
 
   @@index([caseId])
   @@index([status])

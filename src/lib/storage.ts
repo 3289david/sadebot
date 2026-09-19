@@ -1,4 +1,5 @@
-import "server-only";
+// 이 파일은 봇 프로세스(evidenceFlow.ts 경유, tsx로 직접 실행됨)에서도 import되므로
+// "server-only" 마커를 쓰지 않는다 (해당 패키지는 webpack 번들링 환경 밖에서는 항상 throw함).
 import { createHash, randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";

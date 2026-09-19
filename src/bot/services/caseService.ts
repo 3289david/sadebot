@@ -163,9 +163,16 @@ export async function softDeleteCase(params: { caseId: string; actorId: string; 
 
 // 접수 직후(RECEIVED) 상태는 운영진이 아직 한 번도 보지 않은 상태이므로 공개 검색에서 제외한다.
 // 반려/삭제된 사건도 노출하지 않는다.
-const PUBLIC_SEARCHABLE_STATUSES: CaseStatus[] = [
+export const PUBLIC_SEARCHABLE_STATUSES: CaseStatus[] = [
   "REVIEWING", "NEEDS_MORE_INFO", "VERIFIED", "DISPUTED", "ON_HOLD", "EXPLAINED",
 ];
+
+// 상태가 공개 대상이어도, 이의제기 처리 등으로 "임시 비공개(HIDDEN)" 처리된 사건은 검색/조회 어디서도
+// 보이면 안 된다. 봇(/검색, /사건)과 웹(/search, /case/[번호])이 반드시 이 한 곳만 써서 공개 여부를 판단한다 —
+// 예전에는 각자 status만 확인하고 visibility를 보지 않아, 임시 비공개해도 실제로는 계속 검색에 노출되는 버그가 있었다.
+export function publicCaseWhere() {
+  return { status: { in: PUBLIC_SEARCHABLE_STATUSES }, visibility: { not: "HIDDEN" } } as const;
+}
 
 export async function logSearch(source: "DISCORD" | "WEB") {
   await prisma.searchLog.create({ data: { source } });
@@ -178,7 +185,7 @@ export async function searchCases(query: string, opts: { publicOnly: boolean }) 
   const caseByNumber = await prisma.case.findFirst({
     where: {
       caseNumber: query.toUpperCase().replace(/^CASE#?/, "").trim(),
-      ...(opts.publicOnly ? { status: { in: PUBLIC_SEARCHABLE_STATUSES } } : {}),
+      ...(opts.publicOnly ? publicCaseWhere() : {}),
     },
   });
 
@@ -192,7 +199,7 @@ export async function searchCases(query: string, opts: { publicOnly: boolean }) 
             { normalized: { contains: normalized } },
           ].filter(Boolean) as object[],
         },
-        opts.publicOnly ? { case: { status: { in: PUBLIC_SEARCHABLE_STATUSES } } } : {},
+        opts.publicOnly ? { case: publicCaseWhere() } : {},
       ],
     },
     include: {
