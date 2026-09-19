@@ -8,7 +8,7 @@ export default async function AdminStatsPage() {
   return (
     <div>
       <h1 className="text-xl font-bold mb-4">📊 통계</h1>
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
         <Card label="전체 사건" value={stats.total} />
         <Card label="검토중" value={stats.reviewing} />
         <Card label="검증완료" value={stats.verified} />

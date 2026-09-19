@@ -36,28 +36,30 @@ export default async function AdminCasesPage({ searchParams }: { searchParams: P
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200 divide-y">
-        <div className="grid grid-cols-6 gap-2 px-4 py-2 text-xs font-semibold text-neutral-400">
-          <span>사건번호</span>
-          <span>유형</span>
-          <span>상태</span>
-          <span>제보/증거/이의</span>
-          <span>금액</span>
-          <span>접수일</span>
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-x-auto">
+        <div className="divide-y min-w-[640px]">
+          <div className="grid grid-cols-6 gap-2 px-4 py-2 text-xs font-semibold text-neutral-400">
+            <span>사건번호</span>
+            <span>유형</span>
+            <span>상태</span>
+            <span>제보/증거/이의</span>
+            <span>금액</span>
+            <span>접수일</span>
+          </div>
+          {cases.map((c) => (
+            <Link key={c.id} href={`/admin/cases/${c.id}`} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm hover:bg-neutral-50">
+              <span className="font-medium">#{c.caseNumber}</span>
+              <span>{c.damageType}</span>
+              <span>{STATUS_LABEL[c.status]}</span>
+              <span>
+                {c._count.reports}/{c._count.evidence}/{c._count.disputes}
+              </span>
+              <span>{c.damageAmount ? `₩${c.damageAmount.toLocaleString()}` : "-"}</span>
+              <span className="text-neutral-400 text-xs">{c.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span>
+            </Link>
+          ))}
+          {cases.length === 0 && <p className="px-4 py-6 text-sm text-neutral-400">해당하는 사건이 없습니다.</p>}
         </div>
-        {cases.map((c) => (
-          <Link key={c.id} href={`/admin/cases/${c.id}`} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm hover:bg-neutral-50">
-            <span className="font-medium">#{c.caseNumber}</span>
-            <span>{c.damageType}</span>
-            <span>{STATUS_LABEL[c.status]}</span>
-            <span>
-              {c._count.reports}/{c._count.evidence}/{c._count.disputes}
-            </span>
-            <span>{c.damageAmount ? `₩${c.damageAmount.toLocaleString()}` : "-"}</span>
-            <span className="text-neutral-400 text-xs">{c.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span>
-          </Link>
-        ))}
-        {cases.length === 0 && <p className="px-4 py-6 text-sm text-neutral-400">해당하는 사건이 없습니다.</p>}
       </div>
     </div>
   );

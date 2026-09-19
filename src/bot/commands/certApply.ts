@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
 import { applyCertification, CERT_STATUS_LABEL } from "@/lib/certService";
+import { requireNonHubGuild } from "@/bot/services/permissions";
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -16,6 +17,7 @@ const command: BotCommand = {
       await interaction.reply({ content: "⛔ 이 서버의 '서버 관리' 권한이 있는 사용자만 신청할 수 있습니다.", flags: 64 });
       return;
     }
+    if (!(await requireNonHubGuild(interaction))) return;
 
     await interaction.deferReply();
     const { cert, isNew } = await applyCertification({

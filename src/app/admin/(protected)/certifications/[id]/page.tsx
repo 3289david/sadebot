@@ -59,7 +59,7 @@ export default async function AdminCertificationDetailPage({ params }: { params:
         <span className="text-sm px-3 py-1 rounded-full bg-neutral-200">{CERT_STATUS_LABEL[cert.status]}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 gap-4 text-sm">
+      <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
           <dt className="text-neutral-400 text-xs">인증번호</dt>
           <dd>{cert.certNumber}</dd>
@@ -89,7 +89,7 @@ export default async function AdminCertificationDetailPage({ params }: { params:
       {autoCheck && (
         <div className="bg-white rounded-xl border border-neutral-200 p-4">
           <h2 className="text-sm font-semibold text-neutral-500 mb-2">🔍 서버 기본 정보 자동 확인</h2>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div>봇 설치: {autoCheck.botInstalled ? "✅" : "❌"}</div>
             <div>거래 관련 채널: {autoCheck.hasTradeChannel ? "✅" : "➖"}</div>
             <div>환불 정책 채널: {autoCheck.hasRefundChannel ? "✅" : "➖"}</div>

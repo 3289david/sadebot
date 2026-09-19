@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
-import { checkBotPermission } from "@/bot/services/permissions";
+import { checkBotPermission, requireHubGuild } from "@/bot/services/permissions";
 import { createCase, changeCaseStatus } from "@/bot/services/caseService";
 import { logAudit } from "@/lib/audit";
 import { buildDbRegisterLogEmbed } from "@/bot/services/embeds";
@@ -28,6 +28,7 @@ const command: BotCommand = {
     .addIntegerOption((opt) => opt.setName("피해금액").setDescription("원 단위").setRequired(false))
     .addStringOption((opt) => opt.setName("플랫폼").setDescription("관련 플랫폼").setRequired(false)),
   async execute(interaction) {
+    if (!(await requireHubGuild(interaction))) return;
     const perm = await checkBotPermission(interaction.user.id, "REVIEW_REPORT");
     if (!perm.ok || !perm.adminId) {
       await interaction.reply({ content: "⛔ 이 명령어는 운영진만 사용할 수 있습니다.", flags: 64 });

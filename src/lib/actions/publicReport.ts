@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createCase } from "@/bot/services/caseService";
-import { extractIdentifiers, extractDamageAmount, guessDamageType } from "@/lib/extract";
+import { extractAll, extractDamageAmount, guessDamageType } from "@/lib/extract";
 import { checkReportRateLimit } from "@/lib/ratelimit";
 import { postWebhookEmbed } from "@/lib/discordWebhook";
 import { getCurrentReporter } from "@/lib/userSession";
@@ -25,7 +25,7 @@ export async function submitPublicReport(_prev: unknown, formData: FormData) {
   if (!rl.allowed) return { error: "짧은 시간 동안 너무 많은 제보가 접수되었습니다. 잠시 후 다시 시도해주세요." };
 
   const fullText = `${description}\n${identifiersText}`;
-  const extracted = extractIdentifiers(fullText);
+  const extracted = extractAll(fullText);
   const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(fullText);
   const finalDamageType = guessDamageType(fullText) ?? damageType;
 

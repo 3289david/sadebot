@@ -50,10 +50,12 @@ export function buildPanelStatsRow() {
   );
 }
 
-export function buildPanelCertRow() {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("panel:cert_apply").setLabel("🛡️ 인증 신청").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("panel:cert_reapply").setLabel("🔄 재인증").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("panel:cert_info").setLabel("ℹ️ 인증정보 확인").setStyle(ButtonStyle.Primary),
-  );
+// 우리(허브) 서버는 인증 대상이 아니므로, 이 패널은 "여러분의 서버"를 인증받고 싶은
+// 다른 서버 운영자를 위한 안내용이다 — 봇 초대 링크 / 웹 신청 링크 / 인증서버 검색만 제공한다.
+export function buildPanelCertRow(inviteUrl: string | null, applyUrl: string) {
+  const row = new ActionRowBuilder<ButtonBuilder>();
+  if (inviteUrl) row.addComponents(new ButtonBuilder().setLabel("🔗 봇 초대하기").setStyle(ButtonStyle.Link).setURL(inviteUrl));
+  row.addComponents(new ButtonBuilder().setLabel("📝 웹에서 신청하기").setStyle(ButtonStyle.Link).setURL(applyUrl));
+  row.addComponents(new ButtonBuilder().setCustomId("panel:cert_search").setLabel("🔍 인증서버 검색").setStyle(ButtonStyle.Primary));
+  return row;
 }

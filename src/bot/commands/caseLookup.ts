@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
 import { prisma } from "@/lib/prisma";
 import { buildCaseDetailEmbedPublic } from "@/bot/services/embeds";
+import { requireHubGuild } from "@/bot/services/permissions";
 
 const PUBLIC_STATUSES = ["REVIEWING", "NEEDS_MORE_INFO", "VERIFIED", "DISPUTED", "ON_HOLD", "EXPLAINED"];
 
@@ -11,6 +12,7 @@ const command: BotCommand = {
     .setDescription("사건 번호로 상세 정보를 조회합니다. (마스킹된 공개 정보)")
     .addStringOption((opt) => opt.setName("사건번호").setDescription("예: A10291").setRequired(true)),
   async execute(interaction) {
+    if (!(await requireHubGuild(interaction))) return;
     await interaction.deferReply({ flags: 64 });
     const raw = interaction.options.getString("사건번호", true).toUpperCase().replace(/^CASE#?/, "").trim();
 

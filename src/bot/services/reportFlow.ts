@@ -9,7 +9,7 @@ import {
   ThreadAutoArchiveDuration,
   ChannelType,
 } from "discord.js";
-import { extractIdentifiers, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
+import { extractAll, extractDamageAmount, guessDamageType, normalizeIdentifierValue } from "@/lib/extract";
 import { createCase } from "@/bot/services/caseService";
 import { checkReportRateLimit } from "@/lib/ratelimit";
 import { buildAutoExtractEmbed, buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
@@ -53,9 +53,10 @@ export function buildReportModal() {
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
           .setCustomId("identifiersText")
-          .setLabel("상대방 정보 (디스코드ID/전화번호/계좌/닉네임 등)")
+          .setLabel("상대방 정보 (한 줄에 하나씩, \"항목: 값\")")
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
+          .setPlaceholder("디스코드ID: 123456789012345678\n전화번호: 010-1234-5678\n계좌번호: 국민은행 12345678901234\n이름: 홍길동")
           .setMaxLength(800),
       ),
       new ActionRowBuilder<TextInputBuilder>().addComponents(
@@ -85,7 +86,7 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
   const platform = interaction.fields.getTextInputValue("platform").trim() || null;
 
   const fullText = `${description}\n${identifiersText}`;
-  const extracted = extractIdentifiers(fullText);
+  const extracted = extractAll(fullText);
   const damageAmount = amountRaw ? Number(amountRaw.replace(/[^0-9]/g, "")) || null : extractDamageAmount(fullText);
   const finalDamageType = DAMAGE_TYPES.includes(damageType) ? damageType : guessDamageType(fullText) ?? damageType;
 
@@ -114,7 +115,7 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
       const logChannel = await interaction.client.channels.fetch(botConfig.logChannelId);
       if (logChannel?.isTextBased() && "send" in logChannel) {
         const { buildReviewActionRow } = await import("@/bot/services/components");
-        const msg = await logChannel.send({
+        await logChannel.send({
           embeds: [
             buildNewReportLogEmbed({
               caseNumber: created.caseNumber,
@@ -135,22 +136,34 @@ export async function handleReportModalSubmit(interaction: ModalSubmitInteractio
         if (duplicateMatches.length > 0) {
           await logChannel.send({ embeds: [buildDuplicateLinkEmbed(duplicateMatches)] });
         }
-
-        if ("threads" in logChannel && logChannel.type === ChannelType.GuildText) {
-          const thread = await logChannel.threads.create({
-            name: `사건-${created.caseNumber}-증거`,
-            autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
-            startMessage: msg.id,
-          });
-          await thread.send(
-            `<@${interaction.user.id}> 이 스레드에 증거 파일(채팅 캡처, 송금 내역, 거래 화면 등)을 첨부해서 보내주세요. 24시간 동안 자동 수집됩니다.`,
-          );
-          collectEvidence(thread, interaction.user.id, created.id);
-        }
       }
     } catch (err) {
       console.error("[reportFlow] log channel post failed", err);
     }
+  }
+
+  await createEvidenceThread(interaction.client, created.caseNumber, created.id, interaction.user.id);
+}
+
+// 증거 자료 제출 스레드는 관리자 로그 채널이 아니라 전용 채널(DISCORD_EVIDENCE_CHANNEL_ID) 아래에 만든다.
+async function createEvidenceThread(client: import("discord.js").Client, caseNumber: string, caseId: string, reporterId: string) {
+  if (!botConfig.evidenceChannelId) return;
+  try {
+    const evidenceChannel = await client.channels.fetch(botConfig.evidenceChannelId);
+    if (!evidenceChannel?.isTextBased() || !("threads" in evidenceChannel) || evidenceChannel.type !== ChannelType.GuildText) return;
+
+    const msg = await evidenceChannel.send(`🗂️ CASE #${caseNumber} 증거 자료 제출`);
+    const thread = await evidenceChannel.threads.create({
+      name: `사건-${caseNumber}-증거`,
+      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
+      startMessage: msg.id,
+    });
+    await thread.send(
+      `<@${reporterId}> 이 스레드에 증거 파일(채팅 캡처, 송금 내역, 거래 화면 등)을 첨부해서 보내주세요. 24시간 동안 자동 수집됩니다.`,
+    );
+    collectEvidence(thread, reporterId, caseId);
+  } catch (err) {
+    console.error("[reportFlow] evidence thread creation failed", err);
   }
 }
 

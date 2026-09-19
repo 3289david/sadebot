@@ -7,7 +7,7 @@ import {
   type ButtonInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
-import { extractIdentifiers, extractDamageAmount, guessDamageType, type ExtractedIdentifier } from "@/lib/extract";
+import { extractAll, extractDamageAmount, guessDamageType, type ExtractedIdentifier } from "@/lib/extract";
 import { checkBotPermission } from "@/bot/services/permissions";
 import { createCase } from "@/bot/services/caseService";
 import { buildAutoExtractEmbed, buildNewReportLogEmbed, buildDuplicateLinkEmbed, buildReceivedDmEmbed } from "@/bot/services/embeds";
@@ -40,7 +40,7 @@ export async function scanMessageForAutoExtract(message: Message) {
   const content = message.content?.trim();
   if (!content || content.length < 8) return;
 
-  const extracted = extractIdentifiers(content);
+  const extracted = extractAll(content);
   const damageAmount = extractDamageAmount(content);
   const damageType = guessDamageType(content);
   if (extracted.length === 0 && !damageAmount && !damageType) return;

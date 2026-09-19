@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
 import { buildDisputeModal } from "@/bot/services/reportFlow";
 import { prisma } from "@/lib/prisma";
+import { requireHubGuild } from "@/bot/services/permissions";
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -9,6 +10,7 @@ const command: BotCommand = {
     .setDescription("등록된 사건에 대해 이의를 제기합니다.")
     .addStringOption((opt) => opt.setName("사건번호").setDescription("예: A10291").setRequired(true)),
   async execute(interaction) {
+    if (!(await requireHubGuild(interaction))) return;
     const raw = interaction.options.getString("사건번호", true).toUpperCase().replace(/^CASE#?/, "").trim();
     const exists = await prisma.case.findUnique({ where: { caseNumber: raw } });
     if (!exists) {

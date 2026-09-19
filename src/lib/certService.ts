@@ -24,6 +24,22 @@ export const MANUAL_TEST_TYPES: CertTestType[] = [
   "INQUIRY_RESPONSE", "REFUND_POLICY", "POST_SALE_SUPPORT", "TERMS_POLICY",
 ];
 
+export async function searchCertifications(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+  return prisma.serverCertification.findMany({
+    where: {
+      OR: [
+        { guildName: { contains: q, mode: "insensitive" } },
+        { certNumber: { equals: q.toUpperCase() } },
+        { guildId: { equals: q } },
+      ],
+    },
+    orderBy: { appliedAt: "desc" },
+    take: 20,
+  });
+}
+
 export async function runAutoCheck(guildId: string) {
   const guild = await fetchGuild(guildId);
   const channels = await fetchGuildChannels(guildId);

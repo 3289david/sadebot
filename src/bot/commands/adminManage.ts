@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "@/bot/commands/types";
 import { prisma } from "@/lib/prisma";
-import { getAdminByDiscordId } from "@/bot/services/permissions";
+import { getAdminByDiscordId, requireHubGuild } from "@/bot/services/permissions";
 import { logAudit } from "@/lib/audit";
 import { ROLE_LABEL } from "@/lib/rbac";
 import type { AdminRole } from "@prisma/client";
@@ -32,6 +32,7 @@ const command: BotCommand = {
     )
     .addSubcommand((sub) => sub.setName("목록").setDescription("현재 운영진 목록을 봅니다.")),
   async execute(interaction) {
+    if (!(await requireHubGuild(interaction))) return;
     const requester = await getAdminByDiscordId(interaction.user.id);
     if (!requester || requester.role !== "OWNER") {
       await interaction.reply({ content: "⛔ 이 명령어는 Owner만 사용할 수 있습니다.", flags: 64 });

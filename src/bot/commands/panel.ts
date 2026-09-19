@@ -8,7 +8,8 @@ import {
   buildPanelStatsRow,
   buildPanelCertRow,
 } from "@/bot/services/components";
-import { botConfig } from "@/bot/config";
+import { botConfig, buildBotInviteUrl } from "@/bot/config";
+import { requireHubGuild } from "@/bot/services/permissions";
 
 function searchPanelEmbed() {
   return new EmbedBuilder()
@@ -72,13 +73,15 @@ function certPanelEmbed() {
     .setTitle("🛡️ 안전서버 인증")
     .setDescription(
       [
-        "운영팀이 서버 정보와 실제 거래 처리(주문/결제/배송/환불/문의 응답 등)를 직접 확인하고 인증하는 제도입니다.",
+        "**여러분의 디스코드 서버**가 실제로 안전하게 거래를 처리하는지 운영팀이 직접 확인하고 인증해드립니다.",
+        "(이 서버 자체는 사데봇 관리 서버라 인증 대상이 아닙니다.)",
         "",
         "🔍 신청 시 자동으로 확인: 인증 봇 설치 여부, 거래/환불/약관/문의 관련 채널 존재 여부",
         "🕵️ 이후 운영팀이 비공개로 안전거래 테스트를 진행합니다.",
         "",
-        "**인증 신청**: 이 서버의 '서버 관리' 권한이 있는 사용자만 가능",
-        "(슬래시 명령어: `/안전서버인증신청`, `/안전서버재인증`, `/인증정보`)",
+        "**신청 방법**",
+        "1️⃣ 아래 버튼으로 사데봇을 여러분의 서버에 초대 (서버 관리 권한 필요)",
+        "2️⃣ 여러분의 서버에서 `/안전서버인증신청` 실행, 또는 웹에서 바로 신청",
       ].join("\n"),
     )
     .setFooter({ text: "⚠️ 인증은 특정 서버가 모든 거래에서 문제가 없다는 것을 보장하는 의미가 아닙니다." });
@@ -99,6 +102,7 @@ const command: BotCommand = {
         .addChoices(...PANEL_TYPES.map((t) => ({ name: t, value: t }))),
     ),
   async execute(interaction) {
+    if (!(await requireHubGuild(interaction))) return;
     if (!interaction.channel?.isSendable()) {
       await interaction.reply({ content: "이 채널에는 메시지를 보낼 수 없습니다.", flags: 64 });
       return;
@@ -112,7 +116,14 @@ const command: BotCommand = {
     if (type === "이의제기" || type === "전체") jobs.push(interaction.channel.send({ embeds: [disputePanelEmbed()], components: [buildPanelDisputeRow()] }));
     if (type === "통계" || type === "전체") jobs.push(interaction.channel.send({ embeds: [statsPanelEmbed()], components: [buildPanelStatsRow()] }));
     if (type === "안내" || type === "전체") jobs.push(interaction.channel.send({ embeds: [infoPanelEmbed()] }));
-    if (type === "안전서버" || type === "전체") jobs.push(interaction.channel.send({ embeds: [certPanelEmbed()], components: [buildPanelCertRow()] }));
+    if (type === "안전서버" || type === "전체") {
+      jobs.push(
+        interaction.channel.send({
+          embeds: [certPanelEmbed()],
+          components: [buildPanelCertRow(buildBotInviteUrl(), `${botConfig.baseUrl}/certify`)],
+        }),
+      );
+    }
     await Promise.all(jobs);
   },
 };

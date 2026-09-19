@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { exchangeCodeForUser, WEB_LOGIN_ROLES } from "@/lib/discordOAuth";
+import { exchangeCodeForUser, WEB_LOGIN_ROLES, publicUrl } from "@/lib/discordOAuth";
 import { OAUTH_STATE_COOKIE } from "@/lib/authConstants";
 import { createAdminSession } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   c.delete(OAUTH_STATE_COOKIE);
 
   if (!code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(new URL("/admin/login?error=invalid_state", url));
+    return NextResponse.redirect(publicUrl("/admin/login", { error: "invalid_state" }));
   }
 
   let discordUser;
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     discordUser = await exchangeCodeForUser(code);
   } catch (err) {
     console.error("[oauth-callback] exchange failed", err);
-    return NextResponse.redirect(new URL("/admin/login?error=oauth_failed", url));
+    return NextResponse.redirect(publicUrl("/admin/login", { error: "oauth_failed" }));
   }
 
   const admin = await prisma.adminUser.findUnique({ where: { discordId: discordUser.id } });
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
   if (!admin || !admin.active || !WEB_LOGIN_ROLES.includes(admin.role as (typeof WEB_LOGIN_ROLES)[number])) {
     await logAudit({ action: "LOGIN_FAIL", detail: { discordId: discordUser.id, reason: !admin ? "not_registered" : "role_not_allowed" }, ip });
-    return NextResponse.redirect(new URL("/admin/login?error=not_authorized", url));
+    return NextResponse.redirect(publicUrl("/admin/login", { error: "not_authorized" }));
   }
 
   await prisma.adminUser.update({
@@ -49,5 +49,5 @@ export async function GET(req: Request) {
   await createAdminSession(admin.id, ip, userAgent);
   await logAudit({ actorId: admin.id, action: "LOGIN_SUCCESS", targetType: "AdminUser", targetId: admin.id, ip });
 
-  return NextResponse.redirect(new URL("/admin", url));
+  return NextResponse.redirect(publicUrl("/admin"));
 }

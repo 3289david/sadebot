@@ -36,13 +36,16 @@ export default function ReportForm({ username }: { username: string }) {
           <textarea name="description" required rows={5} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">상대방 정보 (선택)</label>
+          <label className="block text-sm font-medium mb-1">상대방 정보 (선택, 한 줄에 하나씩)</label>
           <textarea
             name="identifiersText"
-            rows={3}
-            placeholder="디스코드ID, 전화번호, 계좌번호, 닉네임 등 아는 대로 적어주세요. 자동으로 인식됩니다."
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm"
+            rows={5}
+            placeholder={"디스코드ID: 123456789012345678\n전화번호: 010-1234-5678\n계좌번호: 국민은행 12345678901234\n이름: 홍길동"}
+            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-mono"
           />
+          <p className="text-xs text-zinc-400 mt-1">
+            &ldquo;항목: 값&rdquo; 형식으로 한 줄에 하나씩 적어주시면 정확하게 인식됩니다.
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">관련 플랫폼 (선택)</label>

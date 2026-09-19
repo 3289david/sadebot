@@ -79,7 +79,7 @@ export default async function AdminCaseDetailPage({ params }: { params: Promise<
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 gap-4 text-sm">
+      <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <Field label="유형" value={c.damageType} />
         <Field label="피해금액" value={c.damageAmount ? `₩${c.damageAmount.toLocaleString()}` : "미상"} />
         <Field label="관련 플랫폼" value={c.platform ?? "미상"} />

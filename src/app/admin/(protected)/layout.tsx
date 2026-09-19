@@ -27,35 +27,38 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     "/admin/disputes": pendingDisputes,
     "/admin/certifications": pendingCerts,
   };
+  const visibleNav = NAV.filter((item) => !item.permission || hasPermission(admin.role, item.permission));
 
   return (
-    <div className="min-h-screen flex bg-neutral-100">
-      <aside className="w-56 shrink-0 bg-neutral-900 text-neutral-300 min-h-screen p-4">
-        <Link href="/admin" className="block text-white font-bold text-lg mb-6">
+    <div className="min-h-screen flex flex-col md:flex-row bg-neutral-100">
+      <aside className="shrink-0 bg-neutral-900 text-neutral-300 md:w-56 md:min-h-screen p-3 md:p-4">
+        <Link href="/admin" className="block text-white font-bold text-lg mb-3 md:mb-6">
           🛡️ 사데봇 Admin
         </Link>
-        <nav className="space-y-1 text-sm">
-          {NAV.filter((item) => !item.permission || hasPermission(admin.role, item.permission)).map((item) => (
-            <Link key={item.href} href={item.href} className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-neutral-800 hover:text-white">
+        <nav className="flex md:flex-col gap-1 text-sm overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 md:overflow-visible pb-1 md:pb-0">
+          {visibleNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-md hover:bg-neutral-800 hover:text-white shrink-0 md:shrink md:justify-between"
+            >
               <span>{item.label}</span>
               {badges[item.href] > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-1.5">{badges[item.href]}</span>}
             </Link>
           ))}
         </nav>
-        {needInfoCases > 0 && (
-          <p className="mt-6 text-xs text-amber-400 px-3">🟠 추가자료 요청 대기 {needInfoCases}건</p>
-        )}
+        {needInfoCases > 0 && <p className="mt-3 md:mt-6 text-xs text-amber-400 px-3">🟠 추가자료 요청 대기 {needInfoCases}건</p>}
       </aside>
       <div className="flex-1 min-w-0">
-        <header className="h-14 bg-white border-b border-neutral-200 flex items-center justify-end gap-4 px-6 text-sm">
-          <span className="text-neutral-500">
+        <header className="min-h-14 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-end gap-2 sm:gap-4 px-4 sm:px-6 py-2 text-sm">
+          <span className="text-neutral-500 text-xs sm:text-sm">
             {admin.displayName ?? admin.discordId} ({ROLE_LABEL[admin.role]})
           </span>
           <form action={adminLogoutAction}>
             <button className="text-neutral-400 hover:text-neutral-700">로그아웃</button>
           </form>
         </header>
-        <main className="p-6">{children}</main>
+        <main className="p-3 sm:p-6 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

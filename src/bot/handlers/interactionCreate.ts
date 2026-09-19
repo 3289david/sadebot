@@ -26,7 +26,7 @@ import {
 import { getStats } from "@/bot/services/statsService";
 import { buildStatsEmbed } from "@/bot/services/embeds";
 import { handleAutoExtractButton, handleAutoExtractEditModalSubmit } from "@/bot/services/autoExtractFlow";
-import { handleCertApplyButton, handleCertReapplyButton, handleCertInfoButton } from "@/bot/services/certPanelFlow";
+import { handleCertSearchButton, handleCertSearchModalSubmit, CERT_SEARCH_MODAL_ID } from "@/bot/services/certPanelFlow";
 
 const commandMap = new Map(commands.map((c) => [c.data.name, c]));
 
@@ -53,9 +53,7 @@ export function registerInteractionHandler(client: Client) {
             const stats = await getStats();
             await interaction.editReply({ embeds: [buildStatsEmbed(stats)] });
           }
-          if (kind === "cert_apply") return void (await handleCertApplyButton(interaction));
-          if (kind === "cert_reapply") return void (await handleCertReapplyButton(interaction));
-          if (kind === "cert_info") return void (await handleCertInfoButton(interaction));
+          if (kind === "cert_search") return void (await handleCertSearchButton(interaction));
           return;
         }
 
@@ -106,6 +104,7 @@ export function registerInteractionHandler(client: Client) {
           const draftId = customId.split(":")[1];
           return void (await handleAutoExtractEditModalSubmit(interaction, draftId));
         }
+        if (customId === CERT_SEARCH_MODAL_ID) return void (await handleCertSearchModalSubmit(interaction));
       }
     } catch (err) {
       console.error("[interactionCreate] error", err);

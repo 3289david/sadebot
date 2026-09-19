@@ -1,18 +1,13 @@
-// 제보 원문 텍스트에서 정규식 기반으로 후보 정보를 추출한다.
+// 제보 원문 텍스트에서 후보 정보를 추출한다. 두 가지 방식을 함께 쓴다.
+//  1) 라벨 기반 — "디스코드ID: 123..." 처럼 한 줄에 하나씩 적은 경우 (더 정확, 우선 적용)
+//  2) 정규식 기반 — 자유 서술형 문장에서 패턴을 찾아 보강
 // 주의: 이 결과는 "자동 추출 후보"일 뿐이며, 운영진 확인(admin review) 전에는
 // 공개 DB에 절대 그대로 게시하지 않는다. (호출부에서 항상 pending 상태로만 저장할 것)
 
+import type { IdentifierType } from "@prisma/client";
+
 export interface ExtractedIdentifier {
-  type:
-    | "DISCORD_ID"
-    | "DISCORD_INVITE"
-    | "PHONE"
-    | "BANK_NAME"
-    | "BANK_ACCOUNT"
-    | "ACCOUNT_HOLDER"
-    | "EMAIL"
-    | "WALLET_ADDRESS"
-    | "WEBSITE";
+  type: IdentifierType;
   value: string;
 }
 
@@ -26,10 +21,98 @@ const BANK_NAMES = [
 const AMOUNT_KEYWORDS = /(피해\s*금액|입금|송금|보냈|보낸|피해액)[^\n]{0,20}?([\d,]+(?:\.\d+)?)\s*(만원|원)/;
 const PLAIN_AMOUNT = /([\d,]+(?:\.\d+)?)\s*(만원|원)/g;
 
+// "라벨: 값" 한 줄 입력용 라벨 → IdentifierType 매핑. 공백/괄호 없이 비교한다.
+const LABEL_MAP: Record<string, IdentifierType> = {
+  "디스코드id": "DISCORD_ID",
+  "디스코드아이디": "DISCORD_ID",
+  "디코id": "DISCORD_ID",
+  "디코아이디": "DISCORD_ID",
+  "discordid": "DISCORD_ID",
+  "디스코드사용자명": "DISCORD_USERNAME",
+  "디스코드닉네임": "DISCORD_USERNAME",
+  "디코닉네임": "DISCORD_USERNAME",
+  "디스코드서버": "DISCORD_SERVER",
+  "서버id": "DISCORD_SERVER",
+  "서버아이디": "DISCORD_SERVER",
+  "초대링크": "DISCORD_INVITE",
+  "서버초대링크": "DISCORD_INVITE",
+  "전화번호": "PHONE",
+  "연락처": "PHONE",
+  "핸드폰": "PHONE",
+  "휴대폰": "PHONE",
+  "휴대폰번호": "PHONE",
+  "은행": "BANK_NAME",
+  "은행명": "BANK_NAME",
+  "계좌번호": "BANK_ACCOUNT",
+  "계좌": "BANK_ACCOUNT",
+  "예금주": "ACCOUNT_HOLDER",
+  "이름": "ACCOUNT_HOLDER",
+  "성함": "ACCOUNT_HOLDER",
+  "계좌명의": "ACCOUNT_HOLDER",
+  "이메일": "EMAIL",
+  "email": "EMAIL",
+  "거래사이트": "TRADE_SITE",
+  "거래플랫폼": "TRADE_SITE",
+  "게임닉네임": "GAME_NICK",
+  "게임아이디": "GAME_NICK",
+  "판매자닉네임": "SELLER_NICK",
+  "판매자아이디": "SELLER_NICK",
+  "닉네임": "SELLER_NICK",
+  "웹사이트": "WEBSITE",
+  "사이트": "WEBSITE",
+  "url": "WEBSITE",
+  "지갑주소": "WALLET_ADDRESS",
+  "지갑": "WALLET_ADDRESS",
+  "플랫폼id": "PLATFORM_ID",
+  "거래플랫폼id": "PLATFORM_ID",
+  "사건번호": "CASE_REF",
+  "관련사건번호": "CASE_REF",
+};
+
+function normalizeLabel(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[\s()[\]:：-]/g, "");
+}
+
+// 한 줄에 하나씩 "라벨: 값" 형태로 적은 경우를 파싱한다. (신고 폼에서 권장하는 입력 방식)
+export function extractLabeledLines(text: string): ExtractedIdentifier[] {
+  const found: ExtractedIdentifier[] = [];
+  const seen = new Set<string>();
+  const push = (type: IdentifierType, value: string) => {
+    const v = value.trim();
+    if (!v) return;
+    const key = `${type}:${v}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    found.push({ type, value: v });
+  };
+
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^\s*([가-힣a-zA-Z0-9\s()[\]]{1,20})[:：]\s*(.+?)\s*$/);
+    if (!m) continue;
+    const type = LABEL_MAP[normalizeLabel(m[1])];
+    if (!type) continue;
+
+    // "계좌번호: 국민은행 12345678901234" 처럼 은행명이 값에 섞여 있으면 분리한다.
+    if (type === "BANK_ACCOUNT") {
+      const bank = BANK_NAMES.find((b) => m[2].includes(b));
+      if (bank) push("BANK_NAME", bank);
+      const digitsOnly = m[2].replace(/[^0-9]/g, "");
+      if (digitsOnly) {
+        push("BANK_ACCOUNT", digitsOnly);
+        continue;
+      }
+    }
+
+    push(type, m[2]);
+  }
+
+  return found;
+}
+
 export function extractIdentifiers(text: string): ExtractedIdentifier[] {
   const found: ExtractedIdentifier[] = [];
   const seen = new Set<string>();
-  const push = (type: ExtractedIdentifier["type"], value: string) => {
+  const push = (type: IdentifierType, value: string) => {
     const key = `${type}:${value}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -92,6 +175,14 @@ export function extractIdentifiers(text: string): ExtractedIdentifier[] {
   }
 
   return found;
+}
+
+// 라벨 기반 결과를 우선하고, 정규식 결과로 보강한다 (같은 타입이 라벨로 이미 잡혔으면 정규식 결과는 버림).
+export function extractAll(text: string): ExtractedIdentifier[] {
+  const labeled = extractLabeledLines(text);
+  const labeledTypes = new Set(labeled.map((l) => l.type));
+  const regexed = extractIdentifiers(text).filter((r) => !labeledTypes.has(r.type));
+  return [...labeled, ...regexed];
 }
 
 export function extractDamageAmount(text: string): number | null {
