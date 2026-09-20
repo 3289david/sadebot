@@ -53,7 +53,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
       </dl>
 
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-zinc-500 mb-2">연관 식별자 (마스킹)</h2>
+        <h2 className="text-sm font-semibold text-zinc-500 mb-2">연관 식별자 (전화번호·계좌번호만 마스킹)</h2>
         <div className="space-y-1 text-sm">
           {c.identifiers.length === 0 && <p className="text-zinc-400">등록된 연관 식별자 없음</p>}
           {c.identifiers.map((i) => (

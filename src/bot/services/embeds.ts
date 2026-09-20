@@ -55,7 +55,7 @@ export function buildSearchResultEmbed(
         .join("\n"),
     });
   }
-  embed.setFooter({ text: "※ DB 정보만으로 범죄 사실이 확정되는 것은 아닙니다. 전체 식별정보는 마스킹되어 있습니다." });
+  embed.setFooter({ text: "※ DB 정보만으로 범죄 사실이 확정되는 것은 아닙니다. 전화번호·계좌번호만 마스킹되어 있습니다." });
   return embed;
 }
 
@@ -83,7 +83,7 @@ export function buildCaseDetailEmbedPublic(c: {
       { name: "유형", value: c.damageType, inline: true },
       { name: "관련 플랫폼", value: c.platform ?? "미상", inline: true },
       { name: "발생일", value: c.occurredAt ? c.occurredAt.toISOString().slice(0, 10) : "미상", inline: true },
-      { name: "연관 식별자 (마스킹)", value: idLines },
+      { name: "연관 식별자 (전화번호·계좌번호만 마스킹)", value: idLines },
       { name: "제보", value: `${c.reportCount}건`, inline: true },
       { name: "증거", value: `${c.evidenceCount}개`, inline: true },
       { name: "이의제기", value: `${c.disputeCount}건`, inline: true },

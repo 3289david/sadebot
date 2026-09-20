@@ -104,7 +104,7 @@ export default async function Home() {
       <HomeCertCheckWidget />
 
       <p className="text-xs text-zinc-400 max-w-lg px-2">
-        ※ 공개된 정보는 개인정보 보호를 위해 마스킹되어 제공되며, DB 등재만으로 범죄 사실이 확정되지 않습니다.
+        ※ 전화번호·계좌번호만 마스킹되어 제공되며, DB 등재만으로 범죄 사실이 확정되지 않습니다.
         등록된 당사자는 이의제기를 통해 소명할 수 있습니다.
       </p>
       <Link href="/admin/login" className="text-xs text-zinc-400 underline">

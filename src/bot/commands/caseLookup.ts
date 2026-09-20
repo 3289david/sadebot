@@ -8,7 +8,7 @@ import { publicCaseWhere } from "@/bot/services/caseService";
 const command: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("사건")
-    .setDescription("사건 번호로 상세 정보를 조회합니다. (마스킹된 공개 정보)")
+    .setDescription("사건 번호로 상세 정보를 조회합니다. (전화번호·계좌번호만 마스킹된 공개 정보)")
     .addStringOption((opt) => opt.setName("사건번호").setDescription("예: A10291").setRequired(true)),
   async execute(interaction) {
     if (!(await requireHubGuild(interaction))) return;

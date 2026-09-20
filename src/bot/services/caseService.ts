@@ -138,7 +138,7 @@ export async function changeCaseStatus(params: {
         { name: "유형", value: updated.damageType, inline: true },
         { name: "피해금액", value: updated.damageAmount ? `₩${updated.damageAmount.toLocaleString()}` : "미상", inline: true },
         {
-          name: "연관 정보 (마스킹)",
+          name: "연관 정보 (전화번호·계좌번호만 마스킹)",
           value: identifiers.map((i) => `• ${IDENTIFIER_LABEL[i.type] ?? i.type}: ${maskByType(i.type, i.value)}`).join("\n") || "없음",
         },
         { name: "상세보기", value: `${botConfig.baseUrl}/case/${updated.caseNumber}` },

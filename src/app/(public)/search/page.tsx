@@ -94,7 +94,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       )}
 
       <p className="text-xs text-zinc-400 mt-10">
-        ※ DB 정보만으로 범죄 사실이 확정되는 것은 아닙니다. 전체 식별정보는 마스킹되어 있으며, 등록된 당사자는 이의제기를
+        ※ DB 정보만으로 범죄 사실이 확정되는 것은 아닙니다. 전화번호·계좌번호만 마스킹되어 있으며, 등록된 당사자는 이의제기를
         제출할 수 있습니다.
       </p>
     </main>
